@@ -17,9 +17,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -27,8 +27,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.example.digitalsilhouette.R
 import com.example.digitalsilhouette.theme.FocusTheme
 import com.example.digitalsilhouette.theme.Domine
+import java.util.Calendar
 
 @Composable
 fun LoginScreen(
@@ -50,16 +54,43 @@ fun LoginScreen(
   var emailError by remember { mutableStateOf<String?>(null) }
   var passwordError by remember { mutableStateOf<String?>(null) }
 
-  // Floating background circle animation to make the login feel dynamic & premium
-  val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-  val pulseScale by infiniteTransition.animateFloat(
-    initialValue = 0.95f,
-    targetValue = 1.05f,
+  // Time-of-day greeting
+  val greeting = remember {
+    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    when {
+      hour < 5 -> "Burning the midnight oil? 🌙"
+      hour < 12 -> "Good morning ☀️"
+      hour < 17 -> "Good afternoon 🌤️"
+      hour < 21 -> "Good evening 🌅"
+      else -> "Night owl mode 🦉"
+    }
+  }
+
+  // Staggered reveal animations
+  var showContent by remember { mutableStateOf(false) }
+  LaunchedEffect(Unit) { showContent = true }
+
+  // Logo bounce animation
+  val infiniteTransition = rememberInfiniteTransition(label = "logoPulse")
+  val logoScale by infiniteTransition.animateFloat(
+    initialValue = 1f,
+    targetValue = 1.06f,
     animationSpec = infiniteRepeatable(
-      animation = tween(2500, easing = FastOutSlowInEasing),
+      animation = tween(2000, easing = FastOutSlowInEasing),
       repeatMode = RepeatMode.Reverse
     ),
-    label = "pulseScale"
+    label = "logoScale"
+  )
+
+  // Soft background glow animation
+  val glowAlpha by infiniteTransition.animateFloat(
+    initialValue = 0.03f,
+    targetValue = 0.08f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(3000, easing = FastOutSlowInEasing),
+      repeatMode = RepeatMode.Reverse
+    ),
+    label = "glowAlpha"
   )
 
   Box(
@@ -69,198 +100,273 @@ fun LoginScreen(
       .padding(16.dp),
     contentAlignment = Alignment.Center
   ) {
-    // Glowing ambient background effect
+    // Soft ambient background glow
     Box(
       modifier = Modifier
-        .size(300.dp)
-        .offset(y = (-80).dp)
-        .clip(RoundedCornerShape(150.dp))
+        .size(340.dp)
+        .offset(y = (-60).dp)
+        .clip(RoundedCornerShape(170.dp))
         .background(
           Brush.radialGradient(
-            colors = listOf(theme.accent.copy(alpha = 0.05f * pulseScale), Color.Transparent)
+            colors = listOf(theme.accent.copy(alpha = glowAlpha), Color.Transparent)
           )
         )
     )
 
-    Card(
-      modifier = Modifier
-        .fillMaxWidth()
-        .wrapContentHeight()
-        .border(BorderStroke(1.dp, theme.border.copy(alpha = 0.3f)), RoundedCornerShape(24.dp)),
-      shape = RoundedCornerShape(24.dp),
-      colors = CardDefaults.cardColors(containerColor = theme.cardBg)
+    AnimatedVisibility(
+      visible = showContent,
+      enter = fadeIn(animationSpec = tween(600)) + slideInVertically(
+        initialOffsetY = { it / 6 },
+        animationSpec = tween(600, easing = FastOutSlowInEasing)
+      )
     ) {
-      Column(
+      Card(
         modifier = Modifier
-          .padding(24.dp)
-          .fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+          .fillMaxWidth()
+          .wrapContentHeight()
+          .border(BorderStroke(1.dp, theme.border.copy(alpha = 0.2f)), RoundedCornerShape(28.dp)),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = theme.cardBg)
       ) {
-        // App logo & Name
-        Text(
-          text = "SILHOUETTE",
-          fontSize = 28.sp,
-          fontWeight = FontWeight.Bold,
-          fontFamily = Domine,
-          color = theme.textPrimary,
-          letterSpacing = 4.sp
-        )
-        Text(
-          text = "Secure Space Gateway",
-          fontSize = 11.sp,
-          color = theme.textSecondary,
-          letterSpacing = 1.sp
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Dynamic theme selector placed on Login Screen
-        ThemeSelectorRow(
-          selectedTheme = selectedTheme,
-          onThemeSelected = onThemeSelected,
-          theme = theme
-        )
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Name field
-        OutlinedTextField(
-          value = name,
-          onValueChange = {
-            name = it
-            nameError = null
-          },
-          label = { Text("Full Name", color = theme.textSecondary) },
-          isError = nameError != null,
-          singleLine = true,
-          colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = theme.accent,
-            unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.3f),
-            focusedTextColor = theme.textPrimary,
-            unfocusedTextColor = theme.textPrimary,
-            cursorColor = theme.accent,
-            focusedLabelColor = theme.accent,
-            unfocusedLabelColor = theme.textSecondary
-          ),
-          modifier = Modifier.fillMaxWidth()
-        )
-        nameError?.let {
-          Text(
-            text = it,
-            color = Color(0xFFE53935),
-            fontSize = 11.sp,
-            modifier = Modifier.align(Alignment.Start).padding(start = 4.dp, top = 2.dp)
-          )
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Email field
-        OutlinedTextField(
-          value = email,
-          onValueChange = {
-            email = it
-            emailError = null
-          },
-          label = { Text("Email Address", color = theme.textSecondary) },
-          isError = emailError != null,
-          singleLine = true,
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-          colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = theme.accent,
-            unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.3f),
-            focusedTextColor = theme.textPrimary,
-            unfocusedTextColor = theme.textPrimary,
-            cursorColor = theme.accent,
-            focusedLabelColor = theme.accent,
-            unfocusedLabelColor = theme.textSecondary
-          ),
-          modifier = Modifier.fillMaxWidth()
-        )
-        emailError?.let {
-          Text(
-            text = it,
-            color = Color(0xFFE53935),
-            fontSize = 11.sp,
-            modifier = Modifier.align(Alignment.Start).padding(start = 4.dp, top = 2.dp)
-          )
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Password field
-        OutlinedTextField(
-          value = password,
-          onValueChange = {
-            password = it
-            passwordError = null
-          },
-          label = { Text("Password", color = theme.textSecondary) },
-          isError = passwordError != null,
-          singleLine = true,
-          visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-          trailingIcon = {
-            Text(
-              text = if (isPasswordVisible) "👁️" else "🙈",
-              modifier = Modifier
-                .clickable { isPasswordVisible = !isPasswordVisible }
-                .padding(8.dp)
-            )
-          },
-          colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = theme.accent,
-            unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.3f),
-            focusedTextColor = theme.textPrimary,
-            unfocusedTextColor = theme.textPrimary,
-            cursorColor = theme.accent,
-            focusedLabelColor = theme.accent,
-            unfocusedLabelColor = theme.textSecondary
-          ),
-          modifier = Modifier.fillMaxWidth()
-        )
-        passwordError?.let {
-          Text(
-            text = it,
-            color = Color(0xFFE53935),
-            fontSize = 11.sp,
-            modifier = Modifier.align(Alignment.Start).padding(start = 4.dp, top = 2.dp)
-          )
-        }
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Submit Button
-        Button(
-          onClick = {
-            var isValid = true
-            if (name.isBlank()) {
-              nameError = "Name cannot be empty"
-              isValid = false
-            }
-            if (email.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-              emailError = "Please enter a valid email address"
-              isValid = false
-            }
-            if (password.length < 6) {
-              passwordError = "Password must be at least 6 characters"
-              isValid = false
-            }
-
-            if (isValid) {
-              onLoginSuccess(email, name, password)
-            }
-          },
-          colors = ButtonDefaults.buttonColors(
-            containerColor = theme.accent,
-            contentColor = if (theme.name == "Snow Drift") Color.White else Color.Black
-          ),
-          shape = RoundedCornerShape(12.dp),
+        Column(
           modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp)
+            .padding(horizontal = 28.dp, vertical = 32.dp)
+            .fillMaxWidth(),
+          horizontalAlignment = Alignment.CenterHorizontally
         ) {
-          Text(
-            text = "ENTER SECURE SPACE",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
+          // App logo with gentle bounce
+          Image(
+            painter = painterResource(id = R.drawable.app_logo),
+            contentDescription = "App Logo",
+            modifier = Modifier
+              .size(68.dp)
+              .scale(logoScale)
+              .padding(bottom = 8.dp)
           )
+
+          Text(
+            text = "Kinetix",
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = Domine,
+            color = theme.textPrimary,
+            letterSpacing = 2.sp
+          )
+
+          Spacer(modifier = Modifier.height(4.dp))
+
+          // Time-of-day greeting — feels personal
+          Text(
+            text = greeting,
+            fontSize = 14.sp,
+            color = theme.textSecondary,
+            letterSpacing = 0.5.sp,
+            textAlign = TextAlign.Center
+          )
+          Text(
+            text = "Your quiet corner of focus",
+            fontSize = 11.sp,
+            color = theme.textSecondary.copy(alpha = 0.7f),
+            letterSpacing = 0.5.sp
+          )
+
+          Spacer(modifier = Modifier.height(20.dp))
+
+          // Theme picker
+          ThemeSelectorRow(
+            selectedTheme = selectedTheme,
+            onThemeSelected = onThemeSelected,
+            theme = theme
+          )
+          Spacer(modifier = Modifier.height(24.dp))
+
+          // --- Fields with staggered animation ---
+
+          // Name field
+          AnimatedVisibility(
+            visible = showContent,
+            enter = fadeIn(tween(400, delayMillis = 150)) + slideInVertically(
+              initialOffsetY = { it / 4 },
+              animationSpec = tween(400, delayMillis = 150)
+            )
+          ) {
+            Column {
+              OutlinedTextField(
+                value = name,
+                onValueChange = {
+                  name = it
+                  nameError = null
+                },
+                label = { Text("What should we call you?", color = theme.textSecondary) },
+                placeholder = { Text("e.g. Advaith", color = theme.textSecondary.copy(alpha = 0.4f)) },
+                isError = nameError != null,
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                  focusedBorderColor = theme.accent,
+                  unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.2f),
+                  focusedTextColor = theme.textPrimary,
+                  unfocusedTextColor = theme.textPrimary,
+                  cursorColor = theme.accent,
+                  focusedLabelColor = theme.accent,
+                  unfocusedLabelColor = theme.textSecondary
+                ),
+                modifier = Modifier.fillMaxWidth()
+              )
+              nameError?.let {
+                Text(
+                  text = it,
+                  color = Color(0xFFEF5350),
+                  fontSize = 11.sp,
+                  modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                )
+              }
+            }
+          }
+          Spacer(modifier = Modifier.height(12.dp))
+
+          // Email field
+          AnimatedVisibility(
+            visible = showContent,
+            enter = fadeIn(tween(400, delayMillis = 300)) + slideInVertically(
+              initialOffsetY = { it / 4 },
+              animationSpec = tween(400, delayMillis = 300)
+            )
+          ) {
+            Column {
+              OutlinedTextField(
+                value = email,
+                onValueChange = {
+                  email = it
+                  emailError = null
+                },
+                label = { Text("Your email", color = theme.textSecondary) },
+                placeholder = { Text("name@example.com", color = theme.textSecondary.copy(alpha = 0.4f)) },
+                isError = emailError != null,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                  focusedBorderColor = theme.accent,
+                  unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.2f),
+                  focusedTextColor = theme.textPrimary,
+                  unfocusedTextColor = theme.textPrimary,
+                  cursorColor = theme.accent,
+                  focusedLabelColor = theme.accent,
+                  unfocusedLabelColor = theme.textSecondary
+                ),
+                modifier = Modifier.fillMaxWidth()
+              )
+              emailError?.let {
+                Text(
+                  text = it,
+                  color = Color(0xFFEF5350),
+                  fontSize = 11.sp,
+                  modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                )
+              }
+            }
+          }
+          Spacer(modifier = Modifier.height(12.dp))
+
+          // Password field
+          AnimatedVisibility(
+            visible = showContent,
+            enter = fadeIn(tween(400, delayMillis = 450)) + slideInVertically(
+              initialOffsetY = { it / 4 },
+              animationSpec = tween(400, delayMillis = 450)
+            )
+          ) {
+            Column {
+              OutlinedTextField(
+                value = password,
+                onValueChange = {
+                  password = it
+                  passwordError = null
+                },
+                label = { Text("Password", color = theme.textSecondary) },
+                placeholder = { Text("At least 6 characters", color = theme.textSecondary.copy(alpha = 0.4f)) },
+                isError = passwordError != null,
+                singleLine = true,
+                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                  Text(
+                    text = if (isPasswordVisible) "👁️" else "🙈",
+                    modifier = Modifier
+                      .clickable { isPasswordVisible = !isPasswordVisible }
+                      .padding(8.dp)
+                  )
+                },
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                  focusedBorderColor = theme.accent,
+                  unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.2f),
+                  focusedTextColor = theme.textPrimary,
+                  unfocusedTextColor = theme.textPrimary,
+                  cursorColor = theme.accent,
+                  focusedLabelColor = theme.accent,
+                  unfocusedLabelColor = theme.textSecondary
+                ),
+                modifier = Modifier.fillMaxWidth()
+              )
+              passwordError?.let {
+                Text(
+                  text = it,
+                  color = Color(0xFFEF5350),
+                  fontSize = 11.sp,
+                  modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                )
+              }
+            }
+          }
+          Spacer(modifier = Modifier.height(28.dp))
+
+          // Submit Button
+          AnimatedVisibility(
+            visible = showContent,
+            enter = fadeIn(tween(400, delayMillis = 600)) + scaleIn(
+              initialScale = 0.9f,
+              animationSpec = tween(400, delayMillis = 600)
+            )
+          ) {
+            Button(
+              onClick = {
+                var isValid = true
+                if (name.isBlank()) {
+                  nameError = "Oops! We need your name to get started 😊"
+                  isValid = false
+                }
+                if (email.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                  emailError = "Hmm, that doesn't look like a valid email"
+                  isValid = false
+                }
+                if (password.length < 6) {
+                  passwordError = "A bit short — try at least 6 characters"
+                  isValid = false
+                }
+
+                if (isValid) {
+                  onLoginSuccess(email, name, password)
+                }
+              },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = theme.accent,
+                contentColor = if (theme.name == "Snow Drift") Color.White else Color.Black
+              ),
+              shape = RoundedCornerShape(14.dp),
+              modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+            ) {
+              Text(
+                text = "Let's go ✨",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp
+              )
+            }
+          }
         }
       }
     }
@@ -273,29 +379,36 @@ fun ThemeSelectorRow(
   onThemeSelected: (String) -> Unit,
   theme: FocusTheme
 ) {
-  val themes = listOf("Aether Neon", "Cyberpunk", "Forest Oasis", "Obsidian", "Snow Drift")
+  // Friendly display names for themes
+  val themes = listOf(
+    "Aether Neon" to "Neon ⚡",
+    "Cyberpunk" to "Cyber 🌃",
+    "Forest Oasis" to "Forest 🌿",
+    "Obsidian" to "Dark 🖤",
+    "Snow Drift" to "Light ☁️"
+  )
   LazyRow(
     modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceBetween,
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
     verticalAlignment = Alignment.CenterVertically
   ) {
-    items(themes) { name ->
-      val isSelected = selectedTheme == name
+    items(themes) { (key, label) ->
+      val isSelected = selectedTheme == key
       Box(
         modifier = Modifier
-          .clip(RoundedCornerShape(8.dp))
-          .background(if (isSelected) theme.accent.copy(alpha = 0.15f) else Color.Transparent)
+          .clip(RoundedCornerShape(10.dp))
+          .background(if (isSelected) theme.accent.copy(alpha = 0.12f) else Color.Transparent)
           .border(
-            width = 1.dp,
-            color = if (isSelected) theme.accent else theme.textSecondary.copy(alpha = 0.2f),
-            shape = RoundedCornerShape(8.dp)
+            width = if (isSelected) 1.5.dp else 1.dp,
+            color = if (isSelected) theme.accent else theme.textSecondary.copy(alpha = 0.15f),
+            shape = RoundedCornerShape(10.dp)
           )
-          .clickable { onThemeSelected(name) }
-          .padding(horizontal = 10.dp, vertical = 6.dp)
+          .clickable { onThemeSelected(key) }
+          .padding(horizontal = 12.dp, vertical = 8.dp)
       ) {
         Text(
-          text = name,
-          fontSize = 10.sp,
+          text = label,
+          fontSize = 11.sp,
           fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
           color = if (isSelected) theme.accent else theme.textSecondary
         )

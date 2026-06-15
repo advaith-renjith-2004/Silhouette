@@ -156,7 +156,7 @@ class FocusService : Service(), SensorEventListener {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val channel = NotificationChannel(
         CHANNEL_ID,
-        "Digital Silhouette Monitor",
+        "Kinetix Focus Monitor",
         NotificationManager.IMPORTANCE_LOW
       ).apply {
         description = "Monitors phone orientation for focus mode"

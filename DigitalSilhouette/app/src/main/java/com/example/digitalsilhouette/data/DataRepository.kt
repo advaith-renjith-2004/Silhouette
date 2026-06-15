@@ -67,7 +67,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
 
   init {
     loadSessions()
-    logEvent("System initialized. Welcome to Digital Silhouette.")
+    logEvent("System initialized. Welcome to Kinetix.")
   }
 
   override fun setServiceRunning(running: Boolean) {
