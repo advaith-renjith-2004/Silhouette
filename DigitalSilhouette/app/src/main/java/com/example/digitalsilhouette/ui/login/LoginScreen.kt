@@ -25,10 +25,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.digitalsilhouette.theme.FocusTheme
 
 @Composable
 fun LoginScreen(
   onLoginSuccess: (email: String, name: String) -> Unit,
+  theme: FocusTheme,
   modifier: Modifier = Modifier
 ) {
   var name by remember { mutableStateOf("") }
@@ -39,11 +41,6 @@ fun LoginScreen(
   var nameError by remember { mutableStateOf<String?>(null) }
   var emailError by remember { mutableStateOf<String?>(null) }
   var passwordError by remember { mutableStateOf<String?>(null) }
-
-  val accentColor = Color(0xFF00E5FF) // Cyber Neon Cyan
-  val darkBg = Color(0xFF070A0F)
-  val cardBg = Color(0x1F142030)
-  val textSecondary = Color(0xFF788E9E)
 
   // Floating background circle animation to make the login feel dynamic & premium
   val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -60,7 +57,7 @@ fun LoginScreen(
   Box(
     modifier = Modifier
       .fillMaxSize()
-      .background(darkBg)
+      .background(theme.background)
       .padding(16.dp),
     contentAlignment = Alignment.Center
   ) {
@@ -72,7 +69,7 @@ fun LoginScreen(
         .clip(RoundedCornerShape(150.dp))
         .background(
           Brush.radialGradient(
-            colors = listOf(accentColor.copy(alpha = 0.05f * pulseScale), Color.Transparent)
+            colors = listOf(theme.accent.copy(alpha = 0.05f * pulseScale), Color.Transparent)
           )
         )
     )
@@ -81,9 +78,9 @@ fun LoginScreen(
       modifier = Modifier
         .fillMaxWidth()
         .wrapContentHeight()
-        .border(BorderStroke(1.dp, accentColor.copy(alpha = 0.3f)), RoundedCornerShape(24.dp)),
+        .border(BorderStroke(1.dp, theme.border.copy(alpha = 0.3f)), RoundedCornerShape(24.dp)),
       shape = RoundedCornerShape(24.dp),
-      colors = CardDefaults.cardColors(containerColor = cardBg)
+      colors = CardDefaults.cardColors(containerColor = theme.cardBg)
     ) {
       Column(
         modifier = Modifier
@@ -97,13 +94,13 @@ fun LoginScreen(
           fontSize = 28.sp,
           fontWeight = FontWeight.Bold,
           fontFamily = FontFamily.SansSerif,
-          color = Color.White,
+          color = theme.textPrimary,
           letterSpacing = 4.sp
         )
         Text(
           text = "Secure Space Gateway",
           fontSize = 11.sp,
-          color = textSecondary,
+          color = theme.textSecondary,
           letterSpacing = 1.sp
         )
         Spacer(modifier = Modifier.height(24.dp))
@@ -115,15 +112,17 @@ fun LoginScreen(
             name = it
             nameError = null
           },
-          label = { Text("Full Name", color = textSecondary) },
+          label = { Text("Full Name", color = theme.textSecondary) },
           isError = nameError != null,
           singleLine = true,
           colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = accentColor,
-            unfocusedBorderColor = Color(0x33FFFFFF),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
-            cursorColor = accentColor
+            focusedBorderColor = theme.accent,
+            unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.3f),
+            focusedTextColor = theme.textPrimary,
+            unfocusedTextColor = theme.textPrimary,
+            cursorColor = theme.accent,
+            focusedLabelColor = theme.accent,
+            unfocusedLabelColor = theme.textSecondary
           ),
           modifier = Modifier.fillMaxWidth()
         )
@@ -144,16 +143,18 @@ fun LoginScreen(
             email = it
             emailError = null
           },
-          label = { Text("Email Address", color = textSecondary) },
+          label = { Text("Email Address", color = theme.textSecondary) },
           isError = emailError != null,
           singleLine = true,
           keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
           colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = accentColor,
-            unfocusedBorderColor = Color(0x33FFFFFF),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
-            cursorColor = accentColor
+            focusedBorderColor = theme.accent,
+            unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.3f),
+            focusedTextColor = theme.textPrimary,
+            unfocusedTextColor = theme.textPrimary,
+            cursorColor = theme.accent,
+            focusedLabelColor = theme.accent,
+            unfocusedLabelColor = theme.textSecondary
           ),
           modifier = Modifier.fillMaxWidth()
         )
@@ -174,7 +175,7 @@ fun LoginScreen(
             password = it
             passwordError = null
           },
-          label = { Text("Password", color = textSecondary) },
+          label = { Text("Password", color = theme.textSecondary) },
           isError = passwordError != null,
           singleLine = true,
           visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -188,11 +189,13 @@ fun LoginScreen(
             )
           },
           colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = accentColor,
-            unfocusedBorderColor = Color(0x33FFFFFF),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
-            cursorColor = accentColor
+            focusedBorderColor = theme.accent,
+            unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.3f),
+            focusedTextColor = theme.textPrimary,
+            unfocusedTextColor = theme.textPrimary,
+            cursorColor = theme.accent,
+            focusedLabelColor = theme.accent,
+            unfocusedLabelColor = theme.textSecondary
           ),
           modifier = Modifier.fillMaxWidth()
         )
@@ -228,8 +231,8 @@ fun LoginScreen(
             }
           },
           colors = ButtonDefaults.buttonColors(
-            containerColor = accentColor,
-            contentColor = Color.Black
+            containerColor = theme.accent,
+            contentColor = if (theme.name == "Snow Drift") Color.White else Color.Black
           ),
           shape = RoundedCornerShape(12.dp),
           modifier = Modifier
