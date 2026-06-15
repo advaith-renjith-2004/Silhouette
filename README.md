@@ -64,4 +64,6 @@ We'd love your help in making Kinetix even better! If you have an idea, find a b
 
 <div align="center">
   <i>"Focus is not about saying yes. It's about saying no."</i>
+  <br/><br/>
+  <b>Developed by Advaith</b>
 </div>
