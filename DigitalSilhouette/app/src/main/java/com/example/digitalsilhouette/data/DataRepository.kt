@@ -1,6 +1,7 @@
 package com.example.digitalsilhouette.data
 
 import android.content.Context
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -102,12 +103,18 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
       endTime = endTime,
       durationSeconds = durationSeconds
     )
-    val updatedList = _completedSessions.value.toMutableList().apply {
-      add(0, newSession) // Add to top
-    }
+    val updatedList = _completedSessions.value + newSession
     _completedSessions.value = updatedList
     saveSessions(updatedList)
-    logEvent("Saved Focus Session: ${durationSeconds}s completed.")
+    logEvent("Focus session tracked: ${durationSeconds / 60}m ${durationSeconds % 60}s")
+
+    // Sync to Supabase
+    val userId = sharedPrefs.getString("supabase_user_id", null)
+    if (userId != null) {
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            SupabaseClient.insertFocusSession(userId, startTime, endTime, durationSeconds)
+        }
+    }
   }
 
   override fun clearHistory() {
@@ -139,10 +146,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
   }
 
   override fun loginUser(email: String, name: String, password: String) {
+    _isLoggedIn.value = true
     _userName.value = name
     _userEmail.value = email
     _userPassword.value = password
-    _isLoggedIn.value = true
     sharedPrefs.edit()
       .putBoolean("is_logged_in", true)
       .putString("user_name", name)
@@ -150,6 +157,15 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
       .putString("user_password", password)
       .apply()
     logEvent("User $name logged in ($email).")
+
+    // Sync to Supabase
+    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+      val userId = SupabaseClient.insertUser(email, name, password)
+      if (userId != null) {
+        sharedPrefs.edit().putString("supabase_user_id", userId).apply()
+        logEvent("Supabase Profile Synced. ID: $userId")
+      }
+    }
   }
 
   override fun logoutUser() {
@@ -172,6 +188,14 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         _targetWifiNetworks.value = currentSet
         sharedPrefs.edit().putStringSet("target_wifi_networks", currentSet).apply()
         logEvent("Added '$ssid' to Office focus networks.")
+
+        // Sync to Supabase
+        val userId = sharedPrefs.getString("supabase_user_id", null)
+        if (userId != null) {
+            kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                SupabaseClient.insertNetwork(userId, ssid, "OFFICE")
+            }
+        }
     }
   }
 
@@ -181,6 +205,14 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         _homeWifiNetworks.value = currentSet
         sharedPrefs.edit().putStringSet("home_wifi_networks", currentSet).apply()
         logEvent("Added '$ssid' to Home networks (No DND).")
+
+        // Sync to Supabase
+        val userId = sharedPrefs.getString("supabase_user_id", null)
+        if (userId != null) {
+            kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                SupabaseClient.insertNetwork(userId, ssid, "HOME")
+            }
+        }
     }
   }
 
