@@ -9,6 +9,10 @@
 [![Kotlin](https://img.shields.io/badge/built_with-Kotlin-blue.svg?style=flat&logo=kotlin)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack_Compose-4CAF50.svg?style=flat&logo=android)](https://developer.android.com/jetpack/compose)
 
+<br/>
+
+[![Download APK](https://img.shields.io/badge/Download-APK-FF9800?style=for-the-badge&logo=android)](https://github.com/advaith-renjith-2004/Kinetix/releases/download/v1.0.0-Beta/Kinetix-v1.0.0-Beta.apk)
+
 </div>
 
 ## Welcome to Kinetix
