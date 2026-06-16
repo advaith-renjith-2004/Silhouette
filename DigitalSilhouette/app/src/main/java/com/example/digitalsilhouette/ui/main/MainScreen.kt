@@ -30,6 +30,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -78,6 +79,15 @@ fun MainScreen(
 ) {
   val context = LocalContext.current
   val state by viewModel.uiState.collectAsStateWithLifecycle()
+  val themeName by viewModel.selectedTheme.collectAsStateWithLifecycle()
+
+  val currentTheme = when (themeName) {
+    "Cyberpunk" -> ThemePresets.Cyberpunk
+    "Forest Oasis" -> ThemePresets.ForestOasis
+    "Obsidian" -> ThemePresets.Obsidian
+    "Snow Drift" -> ThemePresets.SnowDrift
+    else -> ThemePresets.AetherNeon
+  }
 
   LaunchedEffect(detectedSsid) {
       if (!detectedSsid.isNullOrBlank()) {
@@ -109,33 +119,10 @@ fun MainScreen(
   ) {
     when (state) {
       MainScreenUiState.Loading -> {
-        Box(
-          modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF070A0F)),
-          contentAlignment = Alignment.Center
-        ) {
-          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = Color(0xFF00E5FF))
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-              text = "Getting things ready...",
-              color = Color(0xFF788E9E),
-              fontSize = 13.sp
-            )
-          }
-        }
+        MainScreenSkeleton(theme = currentTheme)
       }
       is MainScreenUiState.Success -> {
         val successState = state as MainScreenUiState.Success
-        val currentTheme = when (successState.selectedTheme) {
-          "Cyberpunk" -> ThemePresets.Cyberpunk
-          "Forest Oasis" -> ThemePresets.ForestOasis
-          "Obsidian" -> ThemePresets.Obsidian
-          "Snow Drift" -> ThemePresets.SnowDrift
-          else -> ThemePresets.AetherNeon
-        }
-
         Box(
           modifier = Modifier
             .fillMaxSize()
@@ -151,30 +138,11 @@ fun MainScreen(
         }
       }
       is MainScreenUiState.Error -> {
-        Box(
-          modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF070A0F)),
-          contentAlignment = Alignment.Center
-        ) {
-          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("😔", fontSize = 32.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-              text = "Something went wrong",
-              color = Color.White,
-              fontSize = 16.sp,
-              fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-              text = (state as MainScreenUiState.Error).throwable.localizedMessage ?: "Unknown error",
-              color = Color(0xFFEF5350),
-              textAlign = TextAlign.Center,
-              fontSize = 12.sp
-            )
-          }
-        }
+        MainScreenErrorContent(
+          throwable = (state as MainScreenUiState.Error).throwable,
+          theme = currentTheme,
+          onRetry = { viewModel.checkPermissions(context) }
+        )
       }
     }
   }
@@ -309,12 +277,12 @@ internal fun MainScreenContent(
                 val isSelected = successState.selectedTheme == key
                 Box(
                   modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSelected) theme.accent.copy(alpha = 0.12f) else Color.Transparent)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isSelected) theme.accent.copy(alpha = 0.12f) else theme.cardBg.copy(alpha = 0.5f))
                     .border(
                       width = if (isSelected) 1.5.dp else 1.dp,
                       color = if (isSelected) theme.accent else theme.textSecondary.copy(alpha = 0.15f),
-                      shape = RoundedCornerShape(10.dp)
+                      shape = RoundedCornerShape(12.dp)
                     )
                     .clickable { viewModel.changeTheme(key) }
                     .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -378,168 +346,201 @@ internal fun MainScreenContent(
     }
   }
 
-  Column(
-    modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-    horizontalAlignment = Alignment.CenterHorizontally
-  ) {
-    // Header — personalized and warm
-    Spacer(modifier = Modifier.height(12.dp))
-    AnimatedVisibility(
-      visible = showContent,
-      enter = fadeIn(tween(500)) + slideInVertically(
-        initialOffsetY = { -it / 4 },
-        animationSpec = tween(500)
-      )
-    ) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = greeting,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = Domine,
-            color = theme.textPrimary,
-            letterSpacing = 0.5.sp
-          )
-          Spacer(modifier = Modifier.height(2.dp))
-          Text(
-            text = "\"$dailyQuote\"",
-            fontSize = 11.sp,
-            color = theme.textSecondary.copy(alpha = 0.7f),
-            letterSpacing = 0.3.sp,
-            lineHeight = 15.sp,
-            fontWeight = FontWeight.Normal
-          )
-        }
-        if (successState.userEmail.isNotEmpty()) {
-          Spacer(modifier = Modifier.width(8.dp))
-          IconButton(
-            onClick = { showProfileDialog = true },
-            modifier = Modifier.size(36.dp)
-          ) {
-            Text("🤝", fontSize = 20.sp)
-          }
-        }
-      }
-    }
-    Spacer(modifier = Modifier.height(16.dp))
+  var activeTab by remember { mutableStateOf("dashboard") }
 
-    // Permission Alerts Block
-    if (!successState.hasNotificationPermission || !successState.hasDndPermission) {
+  Scaffold(
+    modifier = modifier,
+    containerColor = Color.Transparent,
+    bottomBar = {
+      BottomNavigationBar(
+        activeTab = activeTab,
+        onTabSelected = { activeTab = it },
+        theme = theme
+      )
+    }
+  ) { paddingValues ->
+    Column(
+      modifier = Modifier
+        .padding(paddingValues)
+        .padding(horizontal = 16.dp, vertical = 8.dp)
+        .fillMaxSize(),
+      horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+      // Header — personalized and warm, adjusts dynamically
+      Spacer(modifier = Modifier.height(12.dp))
       AnimatedVisibility(
         visible = showContent,
-        enter = fadeIn(tween(400, delayMillis = 100)) + slideInVertically(
-          initialOffsetY = { it / 4 },
-          animationSpec = tween(400, delayMillis = 100)
+        enter = fadeIn(tween(500)) + slideInVertically(
+          initialOffsetY = { -it / 4 },
+          animationSpec = tween(500)
         )
       ) {
-        PermissionAlertCard(
-          hasNotification = successState.hasNotificationPermission,
-          hasDnd = successState.hasDndPermission,
-          onRequestNotification = {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-              requestPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          if (activeTab == "dashboard") {
+            Column(modifier = Modifier.weight(1f)) {
+              Text(
+                text = greeting,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = Domine,
+                color = theme.textPrimary,
+                letterSpacing = 0.5.sp
+              )
+              Spacer(modifier = Modifier.height(2.dp))
+              Text(
+                text = "\"$dailyQuote\"",
+                fontSize = 11.sp,
+                color = theme.textSecondary.copy(alpha = 0.7f),
+                letterSpacing = 0.3.sp,
+                lineHeight = 15.sp,
+                fontWeight = FontWeight.Normal
+              )
             }
-          },
-          onRequestDnd = {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-              val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
-              context.startActivity(intent)
-            }
-          }
-        )
-      }
-      Spacer(modifier = Modifier.height(12.dp))
-    }
-
-    // Main Silhouette Shield Card with animations
-    AnimatedVisibility(
-      visible = showContent,
-      enter = fadeIn(tween(500, delayMillis = 200)) + slideInVertically(
-        initialOffsetY = { it / 3 },
-        animationSpec = tween(500, delayMillis = 200, easing = FastOutSlowInEasing)
-      )
-    ) {
-      SilhouetteShield(
-        isServiceRunning = successState.isServiceRunning,
-        isFocusActive = successState.isFocusActive,
-        elapsedSeconds = elapsedSeconds,
-        onToggleService = {
-          if (!successState.isServiceRunning) {
-            val permissions = mutableListOf(
-              android.Manifest.permission.ACCESS_FINE_LOCATION,
-              android.Manifest.permission.RECORD_AUDIO
+          } else {
+            Text(
+              text = if (activeTab == "history") "Focus History" else "System Logs",
+              fontSize = 20.sp,
+              fontWeight = FontWeight.Bold,
+              fontFamily = Domine,
+              color = theme.textPrimary,
+              letterSpacing = 0.5.sp,
+              modifier = Modifier.weight(1f)
             )
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-              permissions.add(android.Manifest.permission.ACTIVITY_RECOGNITION)
-            }
-            
-            val missingPermissions = permissions.filter {
-              androidx.core.content.ContextCompat.checkSelfPermission(context, it) != android.content.pm.PackageManager.PERMISSION_GRANTED
-            }
-            
-            if (missingPermissions.isNotEmpty()) {
-              multiplePermissionsLauncher.launch(missingPermissions.toTypedArray())
-            } else {
-              viewModel.handleToggleRequest(context)
-            }
-          } else {
-            viewModel.handleToggleRequest(context)
           }
-        },
-        theme = theme,
-        onLogout = {
           if (successState.userEmail.isNotEmpty()) {
-            viewModel.logoutUser()
-          } else {
-            onItemClick(Login)
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(
+              onClick = { showProfileDialog = true },
+              modifier = Modifier.size(36.dp)
+            ) {
+              Text("🤝", fontSize = 20.sp)
+            }
           }
-        },
-        isLoggedIn = successState.userEmail.isNotEmpty()
-      )
-    }
-    Spacer(modifier = Modifier.height(12.dp))
+        }
+      }
+      Spacer(modifier = Modifier.height(16.dp))
 
-    // Stats Section
-    AnimatedVisibility(
-      visible = showContent,
-      enter = fadeIn(tween(400, delayMillis = 350)) + slideInVertically(
-        initialOffsetY = { it / 3 },
-        animationSpec = tween(400, delayMillis = 350)
-      )
-    ) {
-      StatsRow(sessions = successState.completedSessions, theme = theme)
-    }
-    Spacer(modifier = Modifier.height(12.dp))
+      // Content dynamically switching based on tabs
+      when (activeTab) {
+        "dashboard" -> {
+          Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top
+          ) {
+            // Permission Alerts Block
+            if (!successState.hasNotificationPermission || !successState.hasDndPermission) {
+              AnimatedVisibility(
+                visible = showContent,
+                enter = fadeIn(tween(400, delayMillis = 100)) + slideInVertically(
+                  initialOffsetY = { it / 4 },
+                  animationSpec = tween(400, delayMillis = 100)
+                )
+              ) {
+                PermissionAlertCard(
+                  hasNotification = successState.hasNotificationPermission,
+                  hasDnd = successState.hasDndPermission,
+                  onRequestNotification = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                      requestPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                  },
+                  onRequestDnd = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                      val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+                      context.startActivity(intent)
+                    }
+                  }
+                )
+              }
+              Spacer(modifier = Modifier.height(12.dp))
+            }
 
-    // Live Logs Terminal & History Tab Split
-    var activeTab by remember { mutableStateOf("logs") }
-    AnimatedVisibility(
-      visible = showContent,
-      enter = fadeIn(tween(400, delayMillis = 450))
-    ) {
-      TabSelector(activeTab = activeTab, onTabSelected = { activeTab = it }, theme = theme)
-    }
-    Spacer(modifier = Modifier.height(8.dp))
+            // Main Silhouette Shield Card with animations
+            AnimatedVisibility(
+              visible = showContent,
+              enter = fadeIn(tween(500, delayMillis = 200)) + slideInVertically(
+                initialOffsetY = { it / 3 },
+                animationSpec = tween(500, delayMillis = 200, easing = FastOutSlowInEasing)
+              )
+            ) {
+              SilhouetteShield(
+                isServiceRunning = successState.isServiceRunning,
+                isFocusActive = successState.isFocusActive,
+                elapsedSeconds = elapsedSeconds,
+                onToggleService = {
+                  if (!successState.isServiceRunning) {
+                    val permissions = mutableListOf(
+                      android.Manifest.permission.ACCESS_FINE_LOCATION,
+                      android.Manifest.permission.RECORD_AUDIO
+                    )
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                      permissions.add(android.Manifest.permission.ACTIVITY_RECOGNITION)
+                    }
+                    
+                    val missingPermissions = permissions.filter {
+                      androidx.core.content.ContextCompat.checkSelfPermission(context, it) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                    }
+                    
+                    if (missingPermissions.isNotEmpty()) {
+                      multiplePermissionsLauncher.launch(missingPermissions.toTypedArray())
+                    } else {
+                      viewModel.handleToggleRequest(context)
+                    }
+                  } else {
+                    viewModel.handleToggleRequest(context)
+                  }
+                },
+                theme = theme,
+                onLogout = {
+                  if (successState.userEmail.isNotEmpty()) {
+                    viewModel.logoutUser()
+                  } else {
+                    onItemClick(Login)
+                  }
+                },
+                isLoggedIn = successState.userEmail.isNotEmpty()
+              )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
 
-    if (activeTab == "logs") {
-      LogTerminal(
-        logs = successState.sensorLogs,
-        onClearLogs = { viewModel.clearLogs() },
-        theme = theme,
-        modifier = Modifier.weight(1f)
-      )
-    } else {
-      HistoryList(
-        sessions = successState.completedSessions,
-        onClearHistory = { viewModel.clearHistory() },
-        theme = theme,
-        modifier = Modifier.weight(1f)
-      )
+            // Stats Section
+            AnimatedVisibility(
+              visible = showContent,
+              enter = fadeIn(tween(400, delayMillis = 350)) + slideInVertically(
+                initialOffsetY = { it / 3 },
+                animationSpec = tween(400, delayMillis = 350)
+              )
+            ) {
+              StatsRow(sessions = successState.completedSessions, theme = theme)
+            }
+          }
+        }
+        "history" -> {
+          Box(modifier = Modifier.fillMaxSize()) {
+            HistoryList(
+              sessions = successState.completedSessions,
+              onClearHistory = { viewModel.clearHistory() },
+              theme = theme,
+              modifier = Modifier.fillMaxSize()
+            )
+          }
+        }
+        "logs" -> {
+          Box(modifier = Modifier.fillMaxSize()) {
+            LogTerminal(
+              logs = successState.sensorLogs,
+              onClearLogs = { viewModel.clearLogs() },
+              theme = theme,
+              modifier = Modifier.fillMaxSize()
+            )
+          }
+        }
+      }
     }
   }
 }
@@ -547,7 +548,7 @@ internal fun MainScreenContent(
 
 
 @Composable
-fun TabSelector(
+fun BottomNavigationBar(
   activeTab: String,
   onTabSelected: (String) -> Unit,
   theme: FocusTheme
@@ -555,55 +556,55 @@ fun TabSelector(
   Row(
     modifier = Modifier
       .fillMaxWidth()
-      .clip(RoundedCornerShape(14.dp))
-      .background(theme.textSecondary.copy(alpha = 0.08f))
-      .padding(4.dp),
-    horizontalArrangement = Arrangement.spacedBy(4.dp)
+      .padding(horizontal = 16.dp, vertical = 12.dp)
+      .clip(RoundedCornerShape(20.dp))
+      .background(theme.cardBg)
+      .border(BorderStroke(1.dp, theme.border.copy(alpha = 0.15f)), RoundedCornerShape(20.dp))
+      .padding(vertical = 6.dp, horizontal = 12.dp),
+    horizontalArrangement = Arrangement.SpaceAround,
+    verticalAlignment = Alignment.CenterVertically
   ) {
-    Box(
-      modifier = Modifier
-        .weight(1f)
-        .clip(RoundedCornerShape(10.dp))
-        .background(if (activeTab == "logs") theme.accent.copy(alpha = 0.1f) else Color.Transparent)
-        .border(
-          width = if (activeTab == "logs") 1.dp else 0.dp,
-          color = if (activeTab == "logs") theme.accent.copy(alpha = 0.3f) else Color.Transparent,
-          shape = RoundedCornerShape(10.dp)
-        )
-        .clickable { onTabSelected("logs") }
-        .padding(vertical = 10.dp),
-      contentAlignment = Alignment.Center
-    ) {
-      Text(
-        text = "📡 Live Feed",
-        fontSize = 12.sp,
-        fontWeight = if (activeTab == "logs") FontWeight.Bold else FontWeight.Medium,
-        color = if (activeTab == "logs") theme.accent else theme.textSecondary,
-        letterSpacing = 0.5.sp
+    val items = listOf(
+      Triple("dashboard", "Focus", "🛡️"),
+      Triple("history", "History", "🕒"),
+      Triple("logs", "Logs", "📡")
+    )
+    items.forEach { (tabId, label, icon) ->
+      val isSelected = activeTab == tabId
+      
+      val itemScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.05f else 0.95f,
+        animationSpec = tween(250, easing = FastOutSlowInEasing),
+        label = "itemScale"
       )
-    }
+      val itemAlpha by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0.5f,
+        animationSpec = tween(250),
+        label = "itemAlpha"
+      )
 
-    Box(
-      modifier = Modifier
-        .weight(1f)
-        .clip(RoundedCornerShape(10.dp))
-        .background(if (activeTab == "history") theme.accent.copy(alpha = 0.1f) else Color.Transparent)
-        .border(
-          width = if (activeTab == "history") 1.dp else 0.dp,
-          color = if (activeTab == "history") theme.accent.copy(alpha = 0.3f) else Color.Transparent,
-          shape = RoundedCornerShape(10.dp)
+      Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+          .clip(RoundedCornerShape(12.dp))
+          .clickable { onTabSelected(tabId) }
+          .padding(horizontal = 16.dp, vertical = 8.dp)
+          .graphicsLayer(scaleX = itemScale, scaleY = itemScale, alpha = itemAlpha)
+      ) {
+        Text(
+          text = icon,
+          fontSize = 18.sp
         )
-        .clickable { onTabSelected("history") }
-        .padding(vertical = 10.dp),
-      contentAlignment = Alignment.Center
-    ) {
-      Text(
-        text = "📋 History",
-        fontSize = 12.sp,
-        fontWeight = if (activeTab == "history") FontWeight.Bold else FontWeight.Medium,
-        color = if (activeTab == "history") theme.accent else theme.textSecondary,
-        letterSpacing = 0.5.sp
-      )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+          text = label,
+          fontSize = 10.sp,
+          fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+          color = if (isSelected) theme.accent else theme.textSecondary,
+          letterSpacing = 0.3.sp
+        )
+      }
     }
   }
 }
@@ -664,7 +665,7 @@ fun SilhouetteShield(
 
   Card(
     modifier = Modifier.fillMaxWidth(),
-    shape = RoundedCornerShape(24.dp),
+    shape = RoundedCornerShape(20.dp),
     border = BorderStroke(1.dp, theme.border),
     colors = CardDefaults.cardColors(containerColor = theme.cardBg)
   ) {
@@ -853,7 +854,7 @@ fun PermissionAlertCard(
 ) {
   Card(
     modifier = Modifier.fillMaxWidth(),
-    shape = RoundedCornerShape(18.dp),
+    shape = RoundedCornerShape(20.dp),
     colors = CardDefaults.cardColors(containerColor = Color(0x22FFA726)),
     border = BorderStroke(1.dp, Color(0xFFFFA726).copy(alpha = 0.25f))
   ) {
@@ -888,7 +889,7 @@ fun PermissionAlertCard(
               containerColor = Color(0xFFFFA726),
               contentColor = Color.Black
             ),
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(12.dp),
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
           ) {
             Text("Allow Notifications", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
@@ -901,7 +902,7 @@ fun PermissionAlertCard(
               containerColor = Color(0xFFFFA726),
               contentColor = Color.Black
             ),
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(12.dp),
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
           ) {
             Text("DND Access", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
@@ -987,7 +988,7 @@ fun StatsRow(sessions: List<FocusSession>, theme: FocusTheme) {
     // Total Focus Time
     Card(
       modifier = Modifier.weight(1f),
-      shape = RoundedCornerShape(18.dp),
+      shape = RoundedCornerShape(16.dp),
       colors = CardDefaults.cardColors(containerColor = theme.cardBg),
       border = BorderStroke(1.dp, theme.border.copy(alpha = 0.2f))
     ) {
@@ -1005,7 +1006,7 @@ fun StatsRow(sessions: List<FocusSession>, theme: FocusTheme) {
     // Sessions Count
     Card(
       modifier = Modifier.weight(1f),
-      shape = RoundedCornerShape(18.dp),
+      shape = RoundedCornerShape(16.dp),
       colors = CardDefaults.cardColors(containerColor = theme.cardBg),
       border = BorderStroke(1.dp, theme.border.copy(alpha = 0.2f))
     ) {
@@ -1023,7 +1024,7 @@ fun StatsRow(sessions: List<FocusSession>, theme: FocusTheme) {
     // Streak
     Card(
       modifier = Modifier.weight(1f),
-      shape = RoundedCornerShape(18.dp),
+      shape = RoundedCornerShape(16.dp),
       colors = CardDefaults.cardColors(containerColor = theme.cardBg),
       border = BorderStroke(1.dp, theme.border.copy(alpha = 0.2f))
     ) {
@@ -1063,7 +1064,7 @@ fun LogTerminal(
 
   Card(
     modifier = modifier.fillMaxWidth(),
-    shape = RoundedCornerShape(18.dp),
+    shape = RoundedCornerShape(16.dp),
     colors = CardDefaults.cardColors(containerColor = if (theme.name == "Snow Drift") Color(0xFFE2E8F0) else Color(0xFF040609)),
     border = BorderStroke(1.dp, theme.border)
   ) {
@@ -1080,16 +1081,22 @@ fun LogTerminal(
           fontSize = 11.sp,
           fontWeight = FontWeight.Bold
         )
-        Text(
-          text = "Clear",
-          color = Color(0xFFE57373),
-          fontSize = 10.sp,
-          fontWeight = FontWeight.Medium,
-          fontFamily = FontFamily.Monospace,
+        Box(
           modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFFE57373).copy(alpha = 0.15f))
+            .border(BorderStroke(1.dp, Color(0xFFE57373).copy(alpha = 0.3f)), RoundedCornerShape(8.dp))
             .clickable { onClearLogs() }
-            .padding(4.dp)
-        )
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+          Text(
+            text = "CLEAR",
+            color = Color(0xFFEF9A9A),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace
+          )
+        }
       }
       Spacer(modifier = Modifier.height(8.dp))
       HorizontalDivider(color = theme.border.copy(alpha = 0.15f), modifier = Modifier.fillMaxWidth())
@@ -1151,11 +1158,27 @@ fun HistoryList(
         fontWeight = FontWeight.Medium
       )
       if (sessions.isNotEmpty()) {
-        IconButton(
-          onClick = onClearHistory,
-          modifier = Modifier.size(28.dp)
+        Box(
+          modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFFE57373).copy(alpha = 0.15f))
+            .border(BorderStroke(1.dp, Color(0xFFE57373).copy(alpha = 0.3f)), RoundedCornerShape(8.dp))
+            .clickable { onClearHistory() }
+            .padding(horizontal = 10.dp, vertical = 6.dp)
         ) {
-          Text("🗑️", fontSize = 16.sp)
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+          ) {
+            Text("🗑️", fontSize = 11.sp)
+            Text(
+              text = "CLEAR ALL",
+              color = Color(0xFFEF9A9A),
+              fontSize = 9.sp,
+              fontWeight = FontWeight.Bold,
+              fontFamily = FontFamily.Monospace
+            )
+          }
         }
       }
     }
@@ -1166,7 +1189,7 @@ fun HistoryList(
         modifier = Modifier
           .fillMaxWidth()
           .fillMaxHeight()
-          .clip(RoundedCornerShape(18.dp))
+          .clip(RoundedCornerShape(20.dp))
           .background(theme.textSecondary.copy(alpha = 0.04f))
           .padding(24.dp),
         contentAlignment = Alignment.Center
@@ -1216,7 +1239,7 @@ fun HistoryList(
 
           Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = theme.cardBg),
             border = BorderStroke(1.dp, theme.border.copy(alpha = 0.2f))
           ) {
@@ -1248,6 +1271,197 @@ fun HistoryList(
               )
             }
           }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+fun MainScreenSkeleton(theme: FocusTheme) {
+  val infiniteTransition = rememberInfiniteTransition(label = "skeleton")
+  val alpha by infiniteTransition.animateFloat(
+    initialValue = 0.2f,
+    targetValue = 0.5f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(1000, easing = LinearEasing),
+      repeatMode = RepeatMode.Reverse
+    ),
+    label = "alpha"
+  )
+  
+  Column(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(theme.background)
+      .padding(16.dp),
+    verticalArrangement = Arrangement.SpaceBetween
+  ) {
+    Column(
+      verticalArrangement = Arrangement.spacedBy(16.dp),
+      modifier = Modifier.fillMaxWidth()
+    ) {
+      Spacer(modifier = Modifier.height(12.dp))
+      
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(
+          modifier = Modifier
+            .fillMaxWidth(0.5f)
+            .height(24.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(theme.cardBg.copy(alpha = alpha))
+            .border(BorderStroke(1.dp, theme.border.copy(alpha = alpha * 0.5f)), RoundedCornerShape(8.dp))
+        )
+        Box(
+          modifier = Modifier
+            .fillMaxWidth(0.8f)
+            .height(14.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(theme.cardBg.copy(alpha = alpha))
+            .border(BorderStroke(1.dp, theme.border.copy(alpha = alpha * 0.5f)), RoundedCornerShape(8.dp))
+        )
+      }
+      Spacer(modifier = Modifier.height(16.dp))
+      
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, theme.border.copy(alpha = alpha * 0.3f)),
+        colors = CardDefaults.cardColors(containerColor = theme.cardBg.copy(alpha = alpha * 0.5f))
+      ) {
+        Column(
+          modifier = Modifier.padding(24.dp),
+          horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = Arrangement.Center
+        ) {
+          Box(
+            modifier = Modifier
+              .size(160.dp)
+              .clip(CircleShape)
+              .background(theme.background.copy(alpha = alpha))
+              .border(BorderStroke(2.dp, theme.accent.copy(alpha = alpha)), CircleShape),
+            contentAlignment = Alignment.Center
+          ) {
+            Box(
+              modifier = Modifier
+                .size(110.dp)
+                .clip(CircleShape)
+                .background(theme.cardBg.copy(alpha = alpha))
+                .border(BorderStroke(1.dp, theme.border.copy(alpha = alpha * 0.5f)), CircleShape)
+            )
+          }
+          Spacer(modifier = Modifier.height(16.dp))
+          Box(
+            modifier = Modifier
+              .fillMaxWidth(0.4f)
+              .height(16.dp)
+              .clip(RoundedCornerShape(8.dp))
+              .background(theme.cardBg.copy(alpha = alpha))
+          )
+          Spacer(modifier = Modifier.height(8.dp))
+          Box(
+            modifier = Modifier
+              .fillMaxWidth(0.6f)
+              .height(12.dp)
+              .clip(RoundedCornerShape(8.dp))
+              .background(theme.cardBg.copy(alpha = alpha))
+          )
+          Spacer(modifier = Modifier.height(16.dp))
+          Box(
+            modifier = Modifier
+              .width(120.dp)
+              .height(38.dp)
+              .clip(RoundedCornerShape(12.dp))
+              .background(theme.accent.copy(alpha = alpha))
+          )
+        }
+      }
+      Spacer(modifier = Modifier.height(12.dp))
+      
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+      ) {
+        repeat(3) {
+          Box(
+            modifier = Modifier
+              .weight(1f)
+              .height(80.dp)
+              .clip(RoundedCornerShape(16.dp))
+              .background(theme.cardBg.copy(alpha = alpha))
+              .border(BorderStroke(1.dp, theme.border.copy(alpha = alpha * 0.3f)), RoundedCornerShape(16.dp))
+          )
+        }
+      }
+    }
+    
+    Box(
+      modifier = Modifier
+        .fillMaxWidth()
+        .height(68.dp)
+        .clip(RoundedCornerShape(20.dp))
+        .background(theme.cardBg.copy(alpha = alpha))
+        .border(BorderStroke(1.dp, theme.border.copy(alpha = alpha * 0.3f)), RoundedCornerShape(20.dp))
+    )
+  }
+}
+
+@Composable
+fun MainScreenErrorContent(
+  throwable: Throwable,
+  theme: FocusTheme,
+  onRetry: () -> Unit
+) {
+  Box(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(theme.background)
+      .padding(24.dp),
+    contentAlignment = Alignment.Center
+  ) {
+    Card(
+      modifier = Modifier
+        .fillMaxWidth()
+        .wrapContentHeight(),
+      shape = RoundedCornerShape(20.dp),
+      colors = CardDefaults.cardColors(containerColor = theme.cardBg),
+      border = BorderStroke(1.dp, theme.border.copy(alpha = 0.2f))
+    ) {
+      Column(
+        modifier = Modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+      ) {
+        Text("⚠️", fontSize = 36.sp)
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+          text = "Trouble Loading Kinetix",
+          color = theme.textPrimary,
+          fontSize = 18.sp,
+          fontFamily = Domine,
+          fontWeight = FontWeight.Bold,
+          textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+          text = throwable.localizedMessage ?: "An unexpected error occurred while setting up services.",
+          color = theme.textSecondary,
+          textAlign = TextAlign.Center,
+          fontSize = 12.sp,
+          lineHeight = 18.sp
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+          onClick = onRetry,
+          colors = ButtonDefaults.buttonColors(containerColor = theme.accent),
+          shape = RoundedCornerShape(12.dp),
+          modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+          Text(
+            text = "Retry",
+            color = if (theme.name == "Snow Drift") Color.White else Color.Black,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp
+          )
         }
       }
     }

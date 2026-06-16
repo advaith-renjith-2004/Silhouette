@@ -149,8 +149,8 @@ fun LoginScreen(
         modifier = Modifier
           .fillMaxWidth()
           .wrapContentHeight()
-          .border(BorderStroke(1.dp, theme.border.copy(alpha = 0.2f)), RoundedCornerShape(28.dp)),
-        shape = RoundedCornerShape(28.dp),
+          .border(BorderStroke(1.dp, theme.border.copy(alpha = 0.2f)), RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = theme.cardBg)
       ) {
         Column(
@@ -226,7 +226,7 @@ fun LoginScreen(
                 placeholder = { Text("e.g. Advaith", color = theme.textSecondary.copy(alpha = 0.4f)) },
                 isError = nameError != null,
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                   focusedBorderColor = theme.accent,
                   unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.2f),
@@ -270,7 +270,7 @@ fun LoginScreen(
                 isError = emailError != null,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                   focusedBorderColor = theme.accent,
                   unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.2f),
@@ -323,7 +323,7 @@ fun LoginScreen(
                       .padding(8.dp)
                   )
                 },
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                   focusedBorderColor = theme.accent,
                   unfocusedBorderColor = theme.textSecondary.copy(alpha = 0.2f),
@@ -418,7 +418,7 @@ fun LoginScreen(
                 containerColor = theme.accent,
                 contentColor = if (theme.name == "Snow Drift") Color.White else Color.Black
               ),
-              shape = RoundedCornerShape(14.dp),
+              shape = RoundedCornerShape(12.dp),
               modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp)
@@ -484,12 +484,12 @@ fun ThemeSelectorRow(
       val isSelected = selectedTheme == key
       Box(
         modifier = Modifier
-          .clip(RoundedCornerShape(10.dp))
-          .background(if (isSelected) theme.accent.copy(alpha = 0.12f) else Color.Transparent)
+          .clip(RoundedCornerShape(12.dp))
+          .background(if (isSelected) theme.accent.copy(alpha = 0.12f) else theme.cardBg.copy(alpha = 0.5f))
           .border(
             width = if (isSelected) 1.5.dp else 1.dp,
             color = if (isSelected) theme.accent else theme.textSecondary.copy(alpha = 0.15f),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(12.dp)
           )
           .clickable { onThemeSelected(key) }
           .padding(horizontal = 12.dp, vertical = 8.dp)
