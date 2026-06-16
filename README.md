@@ -36,20 +36,20 @@ No robotic menus. No corporate jargon. Just a warm, human-centric app that under
 
 ---
 
-## 🚀 Recent Milestones & App Progress
+## Key Features Developed
 
-We have recently upgraded Kinetix with several premium features to make it a fully integrated cloud-connected productivity hub:
+Kinetix is built with several key features to make it a fully integrated cloud-connected productivity hub:
 
 - **Supabase Cloud Database Syncing**
-  Kinetix now securely synchronizes your user profile, target Wi-Fi focus networks, and completed focus sessions in real-time with a Supabase cloud database.
+  Kinetix securely synchronizes your user profile, target Wi-Fi focus networks, and completed focus sessions in real-time with a Supabase cloud database.
 - **Smart Auto-Fill & Persistent Log In**
   No more typing credentials on launch. Details are cached locally. The app auto-fills your gateway inputs and keeps you logged in across restarts.
 - **Unified Navigation Backstack**
   The Home (Main) screen acts as the root destination. If you're not logged in, the login gateway is pushed reactively on top, letting you click the back button to view the dashboard as a guest.
-- **In-App Profile Dialog (`🤝`) & Theme Selection**
-  Tapping the handshake emoji (`🤝`) next to the greeting opens a premium profile dialog displaying your User Name, Email, Password, and Supabase ID. You can also switch color theme presets directly inside this pop-up box!
+- **In-App Profile Dialog & Theme Selection**
+  Tapping the profile icon next to the greeting opens a premium profile dialog displaying your User Name, Email, Password, and Supabase ID. You can also switch color theme presets directly inside this pop-up box!
 - **Foreground Accelerometer Gestures**
-  Features a real-time accelerometer listener running inside a Foreground Service, automatically silencing the phone when stationery face-down, and restoring ringer modes instantly when picked up.
+  Features a real-time accelerometer listener running inside a Foreground Service, automatically silencing the phone when stationary face-down, and restoring ringer modes instantly when picked up.
 - **Targeted Wi-Fi Focus Auto-activation**
   Features background Wi-Fi job scheduling that distinguishes between Office (auto-enable focus DND) and Home (skip DND) environments.
 
@@ -72,7 +72,7 @@ It's super simple to get started:
 
 1. Clone this repository to your machine.
 2. Open the `DigitalSilhouette` folder in **Android Studio** *(we kept the old folder name for legacy reasons!)*.
-3. Hit the **Run (▶)** button to install it on your emulator or physical device.
+3. Hit the **Run** button to install it on your emulator or physical device.
 
 *Note: On your first launch, the app will gently ask for Notification and Do Not Disturb permissions so it can do its job properly.*
 
