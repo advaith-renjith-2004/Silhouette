@@ -31,8 +31,27 @@ No robotic menus. No corporate jargon. Just a warm, human-centric app that under
   Every minute of focus compounds over time. Kinetix tracks your consecutive days of deep work to help you build a lasting habit, cheering you on every step of the way.
 - **It knows the time of day**
   Open the app and you'll be greeted with a warm "Good morning" or "Late night", along with a fresh motivational quote to spark your productivity.
-- **Privacy is a promise**
-  All sensor tracking and audio metering happen 100% on your device. We don't send your data anywhere because frankly, it's none of our business.
+- **Cloud Syncing**
+  Your focus logs, network targets, and profile details are securely synced to your private Supabase cloud database backend so you never lose your progress, while sensor metering remains local and optimized.
+
+---
+
+## 🚀 Recent Milestones & App Progress
+
+We have recently upgraded Kinetix with several premium features to make it a fully integrated cloud-connected productivity hub:
+
+- **Supabase Cloud Database Syncing**
+  Kinetix now securely synchronizes your user profile, target Wi-Fi focus networks, and completed focus sessions in real-time with a Supabase cloud database.
+- **Smart Auto-Fill & Persistent Log In**
+  No more typing credentials on launch. Details are cached locally. The app auto-fills your gateway inputs and keeps you logged in across restarts.
+- **Unified Navigation Backstack**
+  The Home (Main) screen acts as the root destination. If you're not logged in, the login gateway is pushed reactively on top, letting you click the back button to view the dashboard as a guest.
+- **In-App Profile Dialog (`🤝`) & Theme Selection**
+  Tapping the handshake emoji (`🤝`) next to the greeting opens a premium profile dialog displaying your User Name, Email, Password, and Supabase ID. You can also switch color theme presets directly inside this pop-up box!
+- **Foreground Accelerometer Gestures**
+  Features a real-time accelerometer listener running inside a Foreground Service, automatically silencing the phone when stationery face-down, and restoring ringer modes instantly when picked up.
+- **Targeted Wi-Fi Focus Auto-activation**
+  Features background Wi-Fi job scheduling that distinguishes between Office (auto-enable focus DND) and Home (skip DND) environments.
 
 ---
 
@@ -42,9 +61,10 @@ We poured a lot of love into the technical foundation of Kinetix:
 
 - **Language:** Kotlin
 - **UI:** Jetpack Compose & Material 3
+- **Database Backend:** Supabase Cloud Integration via REST API (fully offline-resilient)
 - **Architecture:** MVVM with clean StateFlow streams
 - **Typography:** Custom Domine Serif integrated globally
-- **Background Magic:** Battery-optimized Android Foreground Services
+- **Background Magic:** JobScheduler for Wi-Fi tracking & Foreground Services for gesture metering
 
 ### Want to run it yourself?
 
