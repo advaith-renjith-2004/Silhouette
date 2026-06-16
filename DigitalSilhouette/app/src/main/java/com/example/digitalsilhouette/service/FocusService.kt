@@ -23,12 +23,16 @@ import com.example.digitalsilhouette.data.SystemMuter
 import kotlinx.coroutines.*
 import kotlin.coroutines.resume
 
-class FocusService : Service() {
+class FocusService : Service(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
     private lateinit var repository: DefaultDataRepository
     private lateinit var systemMuter: SystemMuter
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
+
+    private var isMonitoringPickup = false
+    private var faceUpStartTime: Long = 0
+    private val PICKUP_THRESHOLD_MS = 1000L // Require 1 second of non-face-down state to declare pickup
 
     companion object {
         const val ACTION_CHECK_ENVIRONMENT = "com.example.digitalsilhouette.ACTION_CHECK_ENVIRONMENT"
@@ -85,19 +89,17 @@ class FocusService : Service() {
             
             withContext(Dispatchers.Main) {
                 StatusOverlayController.show(applicationContext, "Entering the Zone. Muting distractions.")
-            }
-
-            // Set phone's profile and go back to sleep
-            withContext(Dispatchers.Main) {
                 systemMuter.mute()
                 repository.setFocusActive(true, System.currentTimeMillis())
             }
+
+            // Start monitoring for pickup in the foreground
+            startForegroundServiceNotification()
+            startMonitoringPickup()
         } else {
             repository.logEvent("Tier 3 Failed: Environment too loud. Going to sleep.")
+            stopSelf()
         }
-        
-        // Go back to sleep
-        stopSelf()
     }
 
     private fun checkWifiNetwork(): Boolean {
@@ -211,6 +213,91 @@ class FocusService : Service() {
         }
     }
 
+    private fun startForegroundServiceNotification() {
+        val notification = androidx.core.app.NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Kinetix Focus Mode Active")
+            .setContentText("Your phone is silenced. Pick up your phone to restore sound.")
+            .setSmallIcon(com.example.digitalsilhouette.R.mipmap.ic_launcher)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .build()
+        startForeground(5003, notification)
+    }
+
+    private fun startMonitoringPickup() {
+        isMonitoringPickup = true
+        faceUpStartTime = 0
+        val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        if (accelerometer != null) {
+            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)
+            repository.logEvent("Listening for phone pick-up...")
+        } else {
+            repository.logEvent("ERROR: Could not listen for pick-up. No accelerometer.")
+            endFocusSessionAndStop()
+        }
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (!isMonitoringPickup) return
+
+        if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
+            val z = event.values[2]
+            
+            // If phone is no longer face-down (Z > -7.5f)
+            if (z > -7.5f) {
+                if (faceUpStartTime == 0L) {
+                    faceUpStartTime = System.currentTimeMillis()
+                } else {
+                    val durationFaceUp = System.currentTimeMillis() - faceUpStartTime
+                    if (durationFaceUp >= PICKUP_THRESHOLD_MS) {
+                        repository.logEvent("Pick-up detected (Z = $z). Ending focus session.")
+                        endFocusSessionAndStop()
+                    }
+                }
+            } else {
+                // Phone is back face-down, reset the timer
+                faceUpStartTime = 0L
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+
+    private fun endFocusSessionAndStop() {
+        isMonitoringPickup = false
+        sensorManager.unregisterListener(this)
+        
+        serviceScope.launch {
+            withContext(Dispatchers.Main) {
+                systemMuter.unmute()
+                StatusOverlayController.show(applicationContext, "Welcome back! Focus mode ended.")
+                
+                val startTime = repository.currentSessionStartTime.value
+                val endTime = System.currentTimeMillis()
+                if (startTime != null) {
+                    val durationSeconds = (endTime - startTime) / 1000
+                    repository.addSession(startTime, endTime, durationSeconds)
+                }
+                repository.setFocusActive(false, null)
+            }
+
+            // Restart activity tracking if the main service toggle is still active
+            if (repository.isServiceRunning.value) {
+                val intent = Intent(applicationContext, NativeActivityService::class.java).apply {
+                    action = NativeActivityService.ACTION_START_TRACKING
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent)
+                } else {
+                    startService(intent)
+                }
+            }
+
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createNotificationChannel() {
@@ -228,6 +315,11 @@ class FocusService : Service() {
     }
 
     override fun onDestroy() {
+        if (isMonitoringPickup) {
+            sensorManager.unregisterListener(this)
+            systemMuter.unmute()
+            repository.setFocusActive(false, null)
+        }
         serviceScope.cancel()
         super.onDestroy()
     }

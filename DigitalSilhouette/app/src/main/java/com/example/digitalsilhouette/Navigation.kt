@@ -35,38 +35,60 @@ fun MainNavigation(detectedSsid: String? = null) {
     }
   }
 
-  key(isLoggedIn) {
-    val startDestination = if (isLoggedIn) Main else Login
-    val backStack = rememberNavBackStack(startDestination)
+  val startDestination = Main
+  val backStack = rememberNavBackStack(startDestination)
 
-    NavDisplay(
-      backStack = backStack,
-      onBack = { backStack.removeLastOrNull() },
-      entryProvider = entryProvider {
-        entry<Login> {
-          LoginScreen(
-            onLoginSuccess = { email, name, password ->
-              repository.loginUser(email, name, password)
-            },
-            theme = currentTheme,
-            selectedTheme = selectedTheme,
-            onThemeSelected = { themeName ->
-              repository.setTheme(themeName)
-            },
-            initialName = userName,
-            initialEmail = userEmail,
-            initialPassword = userPassword,
-            modifier = Modifier.safeDrawingPadding().padding(16.dp)
-          )
-        }
-        entry<Main> {
-          MainScreen(
-            detectedSsid = detectedSsid,
-            onItemClick = { navKey -> backStack.add(navKey) },
-            modifier = Modifier.safeDrawingPadding().padding(16.dp)
-          )
-        }
+  LaunchedEffect(isLoggedIn) {
+    if (!isLoggedIn) {
+      if (!backStack.contains(Login)) {
+        backStack.add(Login)
       }
-    )
+    } else {
+      backStack.remove(Login)
+    }
   }
+
+  NavDisplay(
+    backStack = backStack,
+    onBack = { backStack.removeLastOrNull() },
+    entryProvider = entryProvider {
+      entry<Login> {
+        LoginScreen(
+          onSignUpSuccess = { email, name, password ->
+            repository.loginUser(email, name, password)
+          },
+          onLoginSuccess = { email, password ->
+            repository.loginExistingUser(email, password)
+          },
+          onLogout = {
+            repository.logoutUser()
+          },
+          theme = currentTheme,
+          selectedTheme = selectedTheme,
+          onThemeSelected = { themeName ->
+            repository.setTheme(themeName)
+          },
+          initialName = userName,
+          initialEmail = if (userEmail.isNotEmpty()) userEmail else repository.getRememberedEmail(),
+          initialPassword = if (userPassword.isNotEmpty()) userPassword else repository.getRememberedPassword(),
+          modifier = Modifier.safeDrawingPadding().padding(16.dp)
+        )
+      }
+      entry<Main> {
+        MainScreen(
+          detectedSsid = detectedSsid,
+          onItemClick = { navKey ->
+            if (navKey == Login) {
+              if (!backStack.contains(Login)) {
+                backStack.add(Login)
+              }
+            } else {
+              backStack.add(navKey)
+            }
+          },
+          modifier = Modifier.safeDrawingPadding().padding(16.dp)
+        )
+      }
+    }
+  )
 }

@@ -28,6 +28,8 @@ class MainScreenViewModel(
   val sensorLogs: StateFlow<List<String>> = repository.sensorLogs
   val userName: StateFlow<String> = repository.userName
   val userEmail: StateFlow<String> = repository.userEmail
+  val userPassword: StateFlow<String> = repository.userPassword
+  val supabaseUserId: StateFlow<String> = repository.supabaseUserId
 
   private val _hasNotificationPermission = MutableStateFlow(true)
   val hasNotificationPermission: StateFlow<Boolean> = _hasNotificationPermission.asStateFlow()
@@ -45,7 +47,9 @@ class MainScreenViewModel(
     selectedTheme,
     sensorLogs,
     userName,
-    userEmail
+    userEmail,
+    userPassword,
+    supabaseUserId
   ) { array ->
     val serviceRunning = array[0] as Boolean
     val focusActive = array[1] as Boolean
@@ -59,6 +63,8 @@ class MainScreenViewModel(
     val logs = array[7] as List<String>
     val name = array[8] as String
     val email = array[9] as String
+    val password = array[10] as String
+    val userId = array[11] as String
     MainScreenUiState.Success(
       isServiceRunning = serviceRunning,
       isFocusActive = focusActive,
@@ -69,7 +75,9 @@ class MainScreenViewModel(
       selectedTheme = theme,
       sensorLogs = logs,
       userName = name,
-      userEmail = email
+      userEmail = email,
+      userPassword = password,
+      supabaseUserId = userId
     )
   }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MainScreenUiState.Loading)
 
@@ -163,6 +171,28 @@ class MainScreenViewModel(
       // Stop tracking
       repository.setServiceRunning(false)
       repository.logEvent("Activity tracking stopped.")
+
+      // Stop NativeActivityService
+      val stopActivityIntent = Intent(context, com.example.digitalsilhouette.service.NativeActivityService::class.java).apply {
+        action = com.example.digitalsilhouette.service.NativeActivityService.ACTION_STOP_TRACKING
+      }
+      context.startService(stopActivityIntent)
+
+      // Stop FocusService if it is running
+      val stopFocusIntent = Intent(context, com.example.digitalsilhouette.service.FocusService::class.java)
+      context.stopService(stopFocusIntent)
+
+      // Unmute and end the focus session if active
+      if (isFocusActive.value) {
+        com.example.digitalsilhouette.data.SystemMuter(context).unmute()
+        val startTime = currentSessionStartTime.value
+        val endTime = System.currentTimeMillis()
+        if (startTime != null) {
+          val durationSeconds = (endTime - startTime) / 1000
+          repository.addSession(startTime, endTime, durationSeconds)
+        }
+        repository.setFocusActive(false, null)
+      }
     } else {
       // Start tracking
       if (androidx.core.app.ActivityCompat.checkSelfPermission(
@@ -218,7 +248,9 @@ sealed interface MainScreenUiState {
     val selectedTheme: String,
     val sensorLogs: List<String>,
     val userName: String,
-    val userEmail: String
+    val userEmail: String,
+    val userPassword: String,
+    val supabaseUserId: String
   ) : MainScreenUiState
 
   data class Error(val throwable: Throwable) : MainScreenUiState

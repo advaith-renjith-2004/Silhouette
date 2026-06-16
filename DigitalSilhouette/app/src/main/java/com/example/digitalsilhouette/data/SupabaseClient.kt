@@ -74,6 +74,35 @@ object SupabaseClient {
         return@withContext null
     }
 
+    data class SupabaseUser(val id: String, val name: String, val email: String, val passwordHash: String)
+
+    suspend fun fetchUserProfile(email: String): SupabaseUser? = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("${SupabaseConfig.SUPABASE_URL}/rest/v1/users?email=eq.$email&select=id,name,email,password")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+            connection.setRequestProperty("Authorization", "Bearer ${SupabaseConfig.SUPABASE_ANON_KEY}")
+
+            if (connection.responseCode in 200..299) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val jsonArray = org.json.JSONArray(response)
+                if (jsonArray.length() > 0) {
+                    val obj = jsonArray.getJSONObject(0)
+                    return@withContext SupabaseUser(
+                        id = obj.getString("id"),
+                        name = obj.getString("name"),
+                        email = obj.getString("email"),
+                        passwordHash = obj.getString("password")
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception during fetchUserProfile", e)
+        }
+        return@withContext null
+    }
+
     suspend fun insertNetwork(userId: String, ssid: String, networkType: String) = withContext(Dispatchers.IO) {
         try {
             val url = URL("${SupabaseConfig.SUPABASE_URL}/rest/v1/saved_networks")

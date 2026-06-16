@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
+import com.example.digitalsilhouette.Login
 import com.example.digitalsilhouette.data.DefaultDataRepository
 import com.example.digitalsilhouette.data.FocusSession
 import kotlinx.coroutines.delay
@@ -144,6 +145,7 @@ fun MainScreen(
             successState = successState,
             viewModel = viewModel,
             theme = currentTheme,
+            onItemClick = onItemClick,
             modifier = modifier.fillMaxSize()
           )
         }
@@ -183,6 +185,7 @@ internal fun MainScreenContent(
   successState: MainScreenUiState.Success,
   viewModel: MainScreenViewModel,
   theme: FocusTheme,
+  onItemClick: (NavKey) -> Unit,
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
@@ -254,6 +257,104 @@ internal fun MainScreenContent(
     )
   }
 
+  var showProfileDialog by remember { mutableStateOf(false) }
+
+  if (showProfileDialog) {
+    AlertDialog(
+      onDismissRequest = { showProfileDialog = false },
+      title = { Text(text = "Profile Details 🤝", fontFamily = Domine, fontWeight = FontWeight.Bold) },
+      text = {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+          Column {
+            Text(text = "User Name", color = theme.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            Text(text = successState.userName, color = theme.textPrimary, fontSize = 14.sp)
+          }
+          Column {
+            Text(text = "Email ID", color = theme.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            Text(text = successState.userEmail, color = theme.textPrimary, fontSize = 14.sp)
+          }
+          Column {
+            Text(text = "Password", color = theme.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            Text(text = successState.userPassword, color = theme.textPrimary, fontSize = 14.sp)
+          }
+          Column {
+            Text(text = "User ID", color = theme.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            Text(text = successState.supabaseUserId, color = theme.textSecondary, fontSize = 11.sp)
+          }
+
+          Spacer(modifier = Modifier.height(4.dp))
+          HorizontalDivider(color = theme.textSecondary.copy(alpha = 0.15f))
+
+          Column {
+            Text(
+              text = "Theme Preset",
+              color = theme.textSecondary,
+              fontSize = 11.sp,
+              fontWeight = FontWeight.Medium,
+              modifier = Modifier.padding(bottom = 6.dp)
+            )
+            val themesList = listOf(
+              "Aether Neon" to "Neon ⚡",
+              "Cyberpunk" to "Cyber 🌃",
+              "Forest Oasis" to "Forest 🌿",
+              "Obsidian" to "Dark 🖤",
+              "Snow Drift" to "Light ☁️"
+            )
+            LazyRow(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              items(themesList) { (key, label) ->
+                val isSelected = successState.selectedTheme == key
+                Box(
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (isSelected) theme.accent.copy(alpha = 0.12f) else Color.Transparent)
+                    .border(
+                      width = if (isSelected) 1.5.dp else 1.dp,
+                      color = if (isSelected) theme.accent else theme.textSecondary.copy(alpha = 0.15f),
+                      shape = RoundedCornerShape(10.dp)
+                    )
+                    .clickable { viewModel.changeTheme(key) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                  Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) theme.accent else theme.textSecondary
+                  )
+                }
+              }
+            }
+          }
+        }
+      },
+      confirmButton = {
+        Button(
+          onClick = { showProfileDialog = false },
+          colors = ButtonDefaults.buttonColors(containerColor = theme.accent)
+        ) {
+          Text("Close", color = if (theme.name == "Snow Drift") Color.White else Color.Black)
+        }
+      },
+      dismissButton = {
+        TextButton(
+          onClick = {
+            showProfileDialog = false
+            viewModel.logoutUser()
+          }
+        ) {
+          Text("Log Out", color = Color(0xFFEF5350))
+        }
+      },
+      containerColor = theme.cardBg,
+      titleContentColor = theme.textPrimary,
+      textContentColor = theme.textPrimary
+    )
+  }
+
   // Staggered entrance animation
   var showContent by remember { mutableStateOf(false) }
   LaunchedEffect(Unit) { showContent = true }
@@ -264,15 +365,16 @@ internal fun MainScreenContent(
   }
 
   // Time-of-day greeting
-  val greeting = remember {
+  val greeting = remember(successState.userName) {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val firstName = successState.userName.split(" ").firstOrNull() ?: successState.userName
+    val displayName = if (firstName.isNotBlank()) ", $firstName" else ""
     when {
-      hour < 5 -> "Late night, $firstName 🌙"
-      hour < 12 -> "Good morning, $firstName ☀️"
-      hour < 17 -> "Good afternoon, $firstName 🌤️"
-      hour < 21 -> "Good evening, $firstName 🌅"
-      else -> "Hey there, $firstName 🦉"
+      hour < 5 -> "Late night$displayName 🌙"
+      hour < 12 -> "Good morning$displayName ☀️"
+      hour < 17 -> "Good afternoon$displayName 🌤️"
+      hour < 21 -> "Good evening$displayName 🌅"
+      else -> "Hey there$displayName 🦉"
     }
   }
 
@@ -313,12 +415,14 @@ internal fun MainScreenContent(
             fontWeight = FontWeight.Normal
           )
         }
-        Spacer(modifier = Modifier.width(8.dp))
-        IconButton(
-          onClick = { viewModel.logoutUser() },
-          modifier = Modifier.size(36.dp)
-        ) {
-          Text("👋", fontSize = 20.sp)
+        if (successState.userEmail.isNotEmpty()) {
+          Spacer(modifier = Modifier.width(8.dp))
+          IconButton(
+            onClick = { showProfileDialog = true },
+            modifier = Modifier.size(36.dp)
+          ) {
+            Text("🤝", fontSize = 20.sp)
+          }
         }
       }
     }
@@ -387,7 +491,15 @@ internal fun MainScreenContent(
             viewModel.handleToggleRequest(context)
           }
         },
-        theme = theme
+        theme = theme,
+        onLogout = {
+          if (successState.userEmail.isNotEmpty()) {
+            viewModel.logoutUser()
+          } else {
+            onItemClick(Login)
+          }
+        },
+        isLoggedIn = successState.userEmail.isNotEmpty()
       )
     }
     Spacer(modifier = Modifier.height(12.dp))
@@ -502,7 +614,9 @@ fun SilhouetteShield(
   isFocusActive: Boolean,
   elapsedSeconds: Long,
   onToggleService: () -> Unit,
-  theme: FocusTheme
+  theme: FocusTheme,
+  onLogout: () -> Unit,
+  isLoggedIn: Boolean = true
 ) {
   val infiniteTransition = rememberInfiniteTransition(label = "pulse")
   val pulseScale by infiniteTransition.animateFloat(
@@ -708,6 +822,22 @@ fun SilhouetteShield(
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 0.5.sp
           )
+        }
+
+        if (!isServiceRunning && !isFocusActive) {
+          Spacer(modifier = Modifier.height(10.dp))
+          TextButton(
+            onClick = onLogout,
+            modifier = Modifier.padding(top = 4.dp)
+          ) {
+            Text(
+              text = if (isLoggedIn) "Log Out" else "Log In",
+              color = theme.textSecondary,
+              fontSize = 12.sp,
+              fontWeight = FontWeight.Medium,
+              letterSpacing = 0.5.sp
+            )
+          }
         }
       }
     }

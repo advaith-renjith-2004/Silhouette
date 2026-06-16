@@ -21,6 +21,7 @@ interface DataRepository {
   val userName: StateFlow<String>
   val userEmail: StateFlow<String>
   val userPassword: StateFlow<String>
+  val supabaseUserId: StateFlow<String>
   val targetWifiNetworks: StateFlow<Set<String>>
   val homeWifiNetworks: StateFlow<Set<String>>
 
@@ -32,9 +33,12 @@ interface DataRepository {
   fun setTheme(themeName: String)
   fun clearLogs()
   fun loginUser(email: String, name: String, password: String)
+  suspend fun loginExistingUser(email: String, password: String): String?
   fun logoutUser()
   fun addTargetWifiNetwork(ssid: String)
   fun addHomeWifiNetwork(ssid: String)
+  fun getRememberedEmail(): String
+  fun getRememberedPassword(): String
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -70,6 +74,9 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
   private val _userPassword = MutableStateFlow(sharedPrefs.getString("user_password", "") ?: "")
   override val userPassword: StateFlow<String> = _userPassword.asStateFlow()
 
+  private val _supabaseUserId = MutableStateFlow(sharedPrefs.getString("supabase_user_id", "") ?: "")
+  override val supabaseUserId: StateFlow<String> = _supabaseUserId.asStateFlow()
+
   private val _targetWifiNetworks = MutableStateFlow(
     sharedPrefs.getStringSet("target_wifi_networks", setOf("\"AndroidWifi\"")) ?: setOf("\"AndroidWifi\"")
   )
@@ -83,6 +90,26 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
   init {
     loadSessions()
     logEvent("System initialized. Welcome to Kinetix.")
+
+    // Auto-sync profile to Supabase on startup if logged in but not synced yet
+    val savedUserId = sharedPrefs.getString("supabase_user_id", null)
+    val email = sharedPrefs.getString("user_email", "") ?: ""
+    val name = sharedPrefs.getString("user_name", "") ?: ""
+    val password = sharedPrefs.getString("user_password", "") ?: ""
+
+    if (sharedPrefs.getBoolean("is_logged_in", false) && savedUserId == null && email.isNotEmpty()) {
+      kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        logEvent("Background sync: Pushing user profile to Supabase...")
+        val userId = SupabaseClient.insertUser(email, name, password)
+        if (userId != null) {
+          sharedPrefs.edit().putString("supabase_user_id", userId).apply()
+          logEvent("Supabase Profile Auto-Synced. ID: $userId")
+          syncExistingDataToSupabase(userId)
+        } else {
+          logEvent("Background sync failed. Will retry next startup.")
+        }
+      }
+    }
   }
 
   override fun setServiceRunning(running: Boolean) {
@@ -155,6 +182,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
       .putString("user_name", name)
       .putString("user_email", email)
       .putString("user_password", password)
+      .putString("remembered_email", email)
+      .putString("remembered_password", password)
       .apply()
     logEvent("User $name logged in ($email).")
 
@@ -163,9 +192,41 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
       val userId = SupabaseClient.insertUser(email, name, password)
       if (userId != null) {
         sharedPrefs.edit().putString("supabase_user_id", userId).apply()
+        withContext(Dispatchers.Main) {
+          _supabaseUserId.value = userId
+        }
         logEvent("Supabase Profile Synced. ID: $userId")
       }
     }
+  }
+
+  override suspend fun loginExistingUser(email: String, password: String): String? = withContext(Dispatchers.IO) {
+    val user = SupabaseClient.fetchUserProfile(email) ?: return@withContext "User not found. Please check your email or sign up!"
+    if (user.passwordHash != password) {
+      return@withContext "Incorrect password. Please try again."
+    }
+
+    withContext(Dispatchers.Main) {
+      _isLoggedIn.value = true
+      _userName.value = user.name
+      _userEmail.value = user.email
+      _userPassword.value = password
+      _supabaseUserId.value = user.id
+    }
+
+    sharedPrefs.edit()
+      .putBoolean("is_logged_in", true)
+      .putString("user_name", user.name)
+      .putString("user_email", user.email)
+      .putString("user_password", password)
+      .putString("supabase_user_id", user.id)
+      .putString("remembered_email", email)
+      .putString("remembered_password", password)
+      .apply()
+
+    logEvent("User ${user.name} logged in from Supabase database.")
+    syncExistingDataToSupabase(user.id)
+    return@withContext null
   }
 
   override fun logoutUser() {
@@ -173,13 +234,17 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     _userName.value = ""
     _userEmail.value = ""
     _userPassword.value = ""
+    _supabaseUserId.value = ""
     sharedPrefs.edit()
       .putBoolean("is_logged_in", false)
       .putString("user_name", "")
       .putString("user_email", "")
       .putString("user_password", "")
+      .remove("supabase_user_id")
+      .remove("remembered_email")
+      .remove("remembered_password")
       .apply()
-    logEvent("User logged out.")
+    logEvent("User logged out and credentials cleared.")
   }
 
   override fun addTargetWifiNetwork(ssid: String) {
@@ -213,6 +278,27 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 SupabaseClient.insertNetwork(userId, ssid, "HOME")
             }
         }
+    }
+  }
+
+  private fun syncExistingDataToSupabase(userId: String) {
+    // Sync target wifi networks
+    _targetWifiNetworks.value.forEach { ssid ->
+      kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        SupabaseClient.insertNetwork(userId, ssid, "OFFICE")
+      }
+    }
+    // Sync home wifi networks
+    _homeWifiNetworks.value.forEach { ssid ->
+      kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        SupabaseClient.insertNetwork(userId, ssid, "HOME")
+      }
+    }
+    // Sync completed focus sessions
+    _completedSessions.value.forEach { session ->
+      kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        SupabaseClient.insertFocusSession(userId, session.startTime, session.endTime, session.durationSeconds)
+      }
     }
   }
 
@@ -254,6 +340,14 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     } catch (e: Exception) {
       e.printStackTrace()
     }
+  }
+
+  override fun getRememberedEmail(): String {
+    return sharedPrefs.getString("remembered_email", "") ?: ""
+  }
+
+  override fun getRememberedPassword(): String {
+    return sharedPrefs.getString("remembered_password", "") ?: ""
   }
 
   companion object {

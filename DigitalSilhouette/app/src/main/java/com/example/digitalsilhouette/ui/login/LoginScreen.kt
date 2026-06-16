@@ -1,6 +1,7 @@
 package com.example.digitalsilhouette.ui.login
 
 import android.util.Patterns
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -33,10 +34,13 @@ import com.example.digitalsilhouette.R
 import com.example.digitalsilhouette.theme.FocusTheme
 import com.example.digitalsilhouette.theme.Domine
 import java.util.Calendar
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
-  onLoginSuccess: (email: String, name: String, password: String) -> Unit,
+  onSignUpSuccess: (email: String, name: String, password: String) -> Unit,
+  onLoginSuccess: suspend (email: String, password: String) -> String?,
+  onLogout: () -> Unit,
   theme: FocusTheme,
   selectedTheme: String,
   onThemeSelected: (String) -> Unit,
@@ -45,14 +49,20 @@ fun LoginScreen(
   initialPassword: String = "",
   modifier: Modifier = Modifier
 ) {
-  var name by remember { mutableStateOf(initialName) }
-  var email by remember { mutableStateOf(initialEmail) }
-  var password by remember { mutableStateOf(initialPassword) }
+  val onBackPressedDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+  var isSignUpMode by remember(initialEmail) { mutableStateOf(initialEmail.isEmpty()) }
+  var isLoading by remember { mutableStateOf(false) }
+  var loginError by remember(initialEmail) { mutableStateOf<String?>(null) }
+  val coroutineScope = rememberCoroutineScope()
+
+  var name by remember(initialName) { mutableStateOf(initialName) }
+  var email by remember(initialEmail) { mutableStateOf(initialEmail) }
+  var password by remember(initialPassword) { mutableStateOf(initialPassword) }
   var isPasswordVisible by remember { mutableStateOf(false) }
 
-  var nameError by remember { mutableStateOf<String?>(null) }
-  var emailError by remember { mutableStateOf<String?>(null) }
-  var passwordError by remember { mutableStateOf<String?>(null) }
+  var nameError by remember(initialName) { mutableStateOf<String?>(null) }
+  var emailError by remember(initialEmail) { mutableStateOf<String?>(null) }
+  var passwordError by remember(initialPassword) { mutableStateOf<String?>(null) }
 
   // Time-of-day greeting
   val greeting = remember {
@@ -100,6 +110,21 @@ fun LoginScreen(
       .padding(16.dp),
     contentAlignment = Alignment.Center
   ) {
+    // Back Button in top left corner
+    IconButton(
+      onClick = { onBackPressedDispatcher?.onBackPressed() },
+      modifier = Modifier
+        .align(Alignment.TopStart)
+        .statusBarsPadding()
+        .padding(8.dp)
+    ) {
+      Text(
+        text = "←",
+        fontSize = 28.sp,
+        color = theme.textPrimary
+      )
+    }
+
     // Soft ambient background glow
     Box(
       modifier = Modifier
@@ -184,7 +209,7 @@ fun LoginScreen(
 
           // Name field
           AnimatedVisibility(
-            visible = showContent,
+            visible = showContent && isSignUpMode,
             enter = fadeIn(tween(400, delayMillis = 150)) + slideInVertically(
               initialOffsetY = { it / 4 },
               animationSpec = tween(400, delayMillis = 150)
@@ -221,9 +246,9 @@ fun LoginScreen(
                   modifier = Modifier.padding(start = 8.dp, top = 4.dp)
                 )
               }
+              Spacer(modifier = Modifier.height(12.dp))
             }
           }
-          Spacer(modifier = Modifier.height(12.dp))
 
           // Email field
           AnimatedVisibility(
@@ -322,7 +347,20 @@ fun LoginScreen(
           }
           Spacer(modifier = Modifier.height(28.dp))
 
-          // Submit Button
+          // Error message
+          // Error message
+          if (loginError != null) {
+            Text(
+              text = loginError!!,
+              color = Color(0xFFEF5350),
+              fontSize = 12.sp,
+              fontWeight = FontWeight.Medium,
+              textAlign = TextAlign.Center,
+              modifier = Modifier.padding(bottom = 12.dp)
+            )
+          }
+
+          // Primary Button (The main blue box)
           AnimatedVisibility(
             visible = showContent,
             enter = fadeIn(tween(400, delayMillis = 600)) + scaleIn(
@@ -332,24 +370,50 @@ fun LoginScreen(
           ) {
             Button(
               onClick = {
-                var isValid = true
-                if (name.isBlank()) {
-                  nameError = "Oops! We need your name to get started 😊"
-                  isValid = false
-                }
-                if (email.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                  emailError = "Hmm, that doesn't look like a valid email"
-                  isValid = false
-                }
-                if (password.length < 6) {
-                  passwordError = "A bit short — try at least 6 characters"
-                  isValid = false
-                }
+                if (isSignUpMode) {
+                  var isValid = true
+                  if (name.isBlank()) {
+                    nameError = "Oops! We need your name to get started 😊"
+                    isValid = false
+                  }
+                  if (email.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                    emailError = "Hmm, that doesn't look like a valid email"
+                    isValid = false
+                  }
+                  if (password.length < 6) {
+                    passwordError = "A bit short — try at least 6 characters"
+                    isValid = false
+                  }
 
-                if (isValid) {
-                  onLoginSuccess(email, name, password)
+                  if (isValid) {
+                    onSignUpSuccess(email, name, password)
+                  }
+                } else {
+                  // Log In
+                  var isValid = true
+                  if (email.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                    emailError = "Hmm, that doesn't look like a valid email"
+                    isValid = false
+                  }
+                  if (password.length < 6) {
+                    passwordError = "A bit short — try at least 6 characters"
+                    isValid = false
+                  }
+
+                  if (isValid) {
+                    isLoading = true
+                    loginError = null
+                    coroutineScope.launch {
+                      val error = onLoginSuccess(email, password)
+                      isLoading = false
+                      if (error != null) {
+                        loginError = error
+                      }
+                    }
+                  }
                 }
               },
+              enabled = !isLoading,
               colors = ButtonDefaults.buttonColors(
                 containerColor = theme.accent,
                 contentColor = if (theme.name == "Snow Drift") Color.White else Color.Black
@@ -359,14 +423,38 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .height(52.dp)
             ) {
-              Text(
-                text = "Let's go ✨",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.5.sp
-              )
+              if (isLoading && !isSignUpMode) {
+                CircularProgressIndicator(
+                  color = if (theme.name == "Snow Drift") Color.White else Color.Black,
+                  modifier = Modifier.size(20.dp),
+                  strokeWidth = 2.dp
+                )
+              } else {
+                Text(
+                  text = if (isSignUpMode) "Let's go ✨" else "Log In ✨",
+                  fontSize = 15.sp,
+                  fontWeight = FontWeight.SemiBold,
+                  letterSpacing = 0.5.sp
+                )
+              }
             }
           }
+
+          Spacer(modifier = Modifier.height(16.dp))
+
+          // Toggle Mode
+          Text(
+            text = if (isSignUpMode) "Already have an account? Log In" else "New to Kinetix? Sign Up",
+            color = theme.accent,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier
+              .clickable(enabled = !isLoading) {
+                isSignUpMode = !isSignUpMode
+                loginError = null
+              }
+              .padding(8.dp)
+          )
         }
       }
     }
