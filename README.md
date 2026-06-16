@@ -11,7 +11,7 @@
 
 </div>
 
-## Hello there!
+## Welcome to Kinetix
 
 Welcome to **Kinetix**. We built this app because we believe your phone should work *for* you, not against you. In a world full of constant pings, rings, and notifications, finding focus can feel impossible. 
 
