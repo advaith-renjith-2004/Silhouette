@@ -168,18 +168,19 @@ class MainScreenViewModel(
       if (androidx.core.app.ActivityCompat.checkSelfPermission(
           context, 
           android.Manifest.permission.ACTIVITY_RECOGNITION
-        ) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
         
         repository.setServiceRunning(true)
         repository.logEvent("Activity tracking started. Waiting for STILL state.")
         
-        // MOCK: Since we cannot fetch play-services-location in this offline build environment,
-        // we simulate the OS ActivityRecognition API detecting a "STILL" transition immediately.
-        repository.logEvent("[MOCK] Simulating OS Activity Recognition: STILL detected.")
-        val intent = Intent(context, com.example.digitalsilhouette.service.FocusService::class.java).apply {
-            action = com.example.digitalsilhouette.service.FocusService.ACTION_CHECK_ENVIRONMENT
+        val intent = Intent(context, com.example.digitalsilhouette.service.NativeActivityService::class.java).apply {
+            action = com.example.digitalsilhouette.service.NativeActivityService.ACTION_START_TRACKING
         }
-        context.startService(intent)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
+        }
         
       } else {
         repository.logEvent("Missing ACTIVITY_RECOGNITION permission.")

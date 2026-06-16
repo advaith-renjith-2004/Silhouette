@@ -35,6 +35,15 @@
         </activity>
 
         <service
+            android:name=".service.NativeActivityService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Sensor based activity detection" />
+        </service>
+
+        <service
             android:name=".service.FocusService"
             android:foregroundServiceType="specialUse"
             android:exported="false">
