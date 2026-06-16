@@ -21,6 +21,7 @@ interface DataRepository {
   val userEmail: StateFlow<String>
   val userPassword: StateFlow<String>
   val targetWifiNetworks: StateFlow<Set<String>>
+  val homeWifiNetworks: StateFlow<Set<String>>
 
   fun setServiceRunning(running: Boolean)
   fun setFocusActive(active: Boolean, startTime: Long?)
@@ -32,6 +33,7 @@ interface DataRepository {
   fun loginUser(email: String, name: String, password: String)
   fun logoutUser()
   fun addTargetWifiNetwork(ssid: String)
+  fun addHomeWifiNetwork(ssid: String)
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -71,6 +73,11 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     sharedPrefs.getStringSet("target_wifi_networks", setOf("\"AndroidWifi\"")) ?: setOf("\"AndroidWifi\"")
   )
   override val targetWifiNetworks: StateFlow<Set<String>> = _targetWifiNetworks.asStateFlow()
+
+  private val _homeWifiNetworks = MutableStateFlow(
+    sharedPrefs.getStringSet("home_wifi_networks", emptySet()) ?: emptySet()
+  )
+  override val homeWifiNetworks: StateFlow<Set<String>> = _homeWifiNetworks.asStateFlow()
 
   init {
     loadSessions()
@@ -164,7 +171,16 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     if (currentSet.add(ssid)) {
         _targetWifiNetworks.value = currentSet
         sharedPrefs.edit().putStringSet("target_wifi_networks", currentSet).apply()
-        logEvent("Added '$ssid' to target focus networks.")
+        logEvent("Added '$ssid' to Office focus networks.")
+    }
+  }
+
+  override fun addHomeWifiNetwork(ssid: String) {
+    val currentSet = _homeWifiNetworks.value.toMutableSet()
+    if (currentSet.add(ssid)) {
+        _homeWifiNetworks.value = currentSet
+        sharedPrefs.edit().putStringSet("home_wifi_networks", currentSet).apply()
+        logEvent("Added '$ssid' to Home networks (No DND).")
     }
   }
 

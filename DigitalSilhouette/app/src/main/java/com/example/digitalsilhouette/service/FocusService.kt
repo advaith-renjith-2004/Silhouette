@@ -120,6 +120,11 @@ class FocusService : Service() {
                 return true
             }
             
+            if (repository.homeWifiNetworks.value.contains(ssid)) {
+                repository.logEvent("Tier 2 Abort: Connected to Home Wi-Fi ($ssid). No DND required.")
+                return false
+            }
+
             return repository.targetWifiNetworks.value.contains(ssid)
         }
         return false

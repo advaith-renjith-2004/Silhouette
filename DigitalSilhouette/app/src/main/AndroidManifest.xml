@@ -42,6 +42,11 @@
                 android:value="Sensor based focus mode activation" />
         </service>
 
+        <service
+            android:name=".service.WifiDetectionJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true" />
+
     </application>
 
 </manifest>

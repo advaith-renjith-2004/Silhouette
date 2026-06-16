@@ -67,6 +67,7 @@ private val motivationalQuotes = listOf(
 
 @Composable
 fun MainScreen(
+  detectedSsid: String? = null,
   onItemClick: (NavKey) -> Unit,
   modifier: Modifier = Modifier,
   viewModel: MainScreenViewModel = run {
@@ -76,6 +77,12 @@ fun MainScreen(
 ) {
   val context = LocalContext.current
   val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+  LaunchedEffect(detectedSsid) {
+      if (!detectedSsid.isNullOrBlank()) {
+          viewModel.handleIncomingSsid(detectedSsid)
+      }
+  }
 
   // Track lifecycle to recheck permissions on resume
   val lifecycleOwner = LocalLifecycleOwner.current
@@ -213,20 +220,32 @@ internal fun MainScreenContent(
 
   if (showWifiPrompt) {
     AlertDialog(
-      onDismissRequest = { viewModel.onWifiPromptResult(context, false) },
+      onDismissRequest = { viewModel.onWifiPromptResult(context, "IGNORE") },
       title = { Text(text = "Focus Network Detected", fontFamily = Domine, fontWeight = FontWeight.Bold) },
-      text = { Text(text = "You are connected to '${viewModel.currentDetectedSsid}'. Is this your Home or Office Wi-Fi? Saving it ensures focus tracking works optimally.") },
+      text = { Text(text = "You are connected to '${viewModel.currentDetectedSsid}'.\n\nIs this your Office Wi-Fi (Enable DND) or Home Wi-Fi (Skip DND)?") },
       confirmButton = {
-        Button(
-          onClick = { viewModel.onWifiPromptResult(context, true) },
-          colors = ButtonDefaults.buttonColors(containerColor = theme.accent)
+        androidx.compose.foundation.layout.Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
         ) {
-          Text("Yes, Save it", color = theme.background)
+            Button(
+              onClick = { viewModel.onWifiPromptResult(context, "OFFICE") },
+              colors = ButtonDefaults.buttonColors(containerColor = theme.accent)
+            ) {
+              Text("Office (Enable DND)", color = theme.background)
+            }
+            Button(
+              onClick = { viewModel.onWifiPromptResult(context, "HOME") },
+              colors = ButtonDefaults.buttonColors(containerColor = theme.cardBg),
+              border = androidx.compose.foundation.BorderStroke(1.dp, theme.border)
+            ) {
+              Text("Home (Skip DND)", color = theme.textPrimary)
+            }
         }
       },
       dismissButton = {
-        TextButton(onClick = { viewModel.onWifiPromptResult(context, false) }) {
-          Text("No, skip", color = theme.textSecondary)
+        TextButton(onClick = { viewModel.onWifiPromptResult(context, "IGNORE") }) {
+          Text("Ignore", color = theme.textSecondary)
         }
       },
       containerColor = theme.cardBg,

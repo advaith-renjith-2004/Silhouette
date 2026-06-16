@@ -16,7 +16,7 @@ import com.example.digitalsilhouette.ui.login.LoginScreen
 import com.example.digitalsilhouette.ui.main.MainScreen
 
 @Composable
-fun MainNavigation() {
+fun MainNavigation(detectedSsid: String? = null) {
   val context = LocalContext.current.applicationContext
   val repository = remember { DefaultDataRepository.getInstance(context) }
   val isLoggedIn by repository.isLoggedIn.collectAsStateWithLifecycle()
@@ -61,6 +61,7 @@ fun MainNavigation() {
         }
         entry<Main> {
           MainScreen(
+            detectedSsid = detectedSsid,
             onItemClick = { navKey -> backStack.add(navKey) },
             modifier = Modifier.safeDrawingPadding().padding(16.dp)
           )

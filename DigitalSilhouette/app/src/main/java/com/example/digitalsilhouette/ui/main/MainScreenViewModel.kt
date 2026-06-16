@@ -122,7 +122,10 @@ class MainScreenViewModel(
         val ssid = wifiManager.connectionInfo.ssid
         
         // If it's a new, untracked network and not an empty/unknown one
-        if (ssid != "<unknown ssid>" && ssid.isNotBlank() && !repository.targetWifiNetworks.value.contains(ssid)) {
+        val isOffice = repository.targetWifiNetworks.value.contains(ssid)
+        val isHome = repository.homeWifiNetworks.value.contains(ssid)
+        
+        if (ssid != "<unknown ssid>" && ssid.isNotBlank() && !isOffice && !isHome) {
             currentDetectedSsid = ssid
             _showWifiPrompt.value = true
             return
@@ -134,10 +137,23 @@ class MainScreenViewModel(
     toggleService(context)
   }
 
-  fun onWifiPromptResult(context: Context, saveNetwork: Boolean) {
+  fun handleIncomingSsid(ssid: String) {
+    val isOffice = repository.targetWifiNetworks.value.contains(ssid)
+    val isHome = repository.homeWifiNetworks.value.contains(ssid)
+    
+    if (ssid != "<unknown ssid>" && ssid.isNotBlank() && !isOffice && !isHome) {
+        currentDetectedSsid = ssid
+        _showWifiPrompt.value = true
+    }
+  }
+
+  fun onWifiPromptResult(context: Context, selection: String) {
     _showWifiPrompt.value = false
-    if (saveNetwork && currentDetectedSsid.isNotBlank()) {
-      repository.addTargetWifiNetwork(currentDetectedSsid)
+    if (currentDetectedSsid.isNotBlank()) {
+      when (selection) {
+        "OFFICE" -> repository.addTargetWifiNetwork(currentDetectedSsid)
+        "HOME" -> repository.addHomeWifiNetwork(currentDetectedSsid)
+      }
     }
     toggleService(context)
   }
