@@ -55,6 +55,7 @@ import java.util.*
 import com.example.digitalsilhouette.theme.FocusTheme
 import com.example.digitalsilhouette.theme.ThemePresets
 import com.example.digitalsilhouette.theme.Domine
+import com.example.digitalsilhouette.ui.components.GeometricBackground
 
 // Motivational quotes that rotate — gives the app a personal, human touch
 private val motivationalQuotes = listOf(
@@ -81,26 +82,6 @@ fun MainScreen(
   val context = LocalContext.current
   val state by viewModel.uiState.collectAsStateWithLifecycle()
   val themeName by viewModel.selectedTheme.collectAsStateWithLifecycle()
-
-  val glowInfiniteTransition = rememberInfiniteTransition(label = "glowPulse")
-  val glowXOffset by glowInfiniteTransition.animateFloat(
-    initialValue = -80f,
-    targetValue = 80f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(5000, easing = EaseInOutSine),
-      repeatMode = RepeatMode.Reverse
-    ),
-    label = "glowX"
-  )
-  val glowYOffset by glowInfiniteTransition.animateFloat(
-    initialValue = -50f,
-    targetValue = 50f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(4000, easing = EaseInOutSine),
-      repeatMode = RepeatMode.Reverse
-    ),
-    label = "glowY"
-  )
 
   val currentTheme = when (themeName) {
     "Cyberpunk" -> ThemePresets.Cyberpunk
@@ -138,38 +119,21 @@ fun MainScreen(
   Box(
     modifier = Modifier.fillMaxSize()
   ) {
+    GeometricBackground(theme = currentTheme)
+
     when (state) {
       MainScreenUiState.Loading -> {
         MainScreenSkeleton(theme = currentTheme)
       }
       is MainScreenUiState.Success -> {
         val successState = state as MainScreenUiState.Success
-        Box(
-          modifier = Modifier
-            .fillMaxSize()
-            .background(currentTheme.background)
-            .drawBehind {
-              val center = Offset(
-                x = size.width / 2f + glowXOffset.dp.toPx(),
-                y = size.height / 3f + glowYOffset.dp.toPx()
-              )
-              drawRect(
-                brush = Brush.radialGradient(
-                  colors = listOf(currentTheme.accent.copy(alpha = 0.06f), Color.Transparent),
-                  center = center,
-                  radius = size.width * 0.8f
-                )
-              )
-            }
-        ) {
-          MainScreenContent(
-            successState = successState,
-            viewModel = viewModel,
-            theme = currentTheme,
-            onItemClick = onItemClick,
-            modifier = modifier.fillMaxSize()
-          )
-        }
+        MainScreenContent(
+          successState = successState,
+          viewModel = viewModel,
+          theme = currentTheme,
+          onItemClick = onItemClick,
+          modifier = modifier.fillMaxSize()
+        )
       }
       is MainScreenUiState.Error -> {
         MainScreenErrorContent(

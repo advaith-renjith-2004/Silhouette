@@ -33,6 +33,7 @@ import androidx.compose.ui.res.painterResource
 import com.example.digitalsilhouette.R
 import com.example.digitalsilhouette.theme.FocusTheme
 import com.example.digitalsilhouette.theme.Domine
+import com.example.digitalsilhouette.ui.components.GeometricBackground
 import java.util.Calendar
 import kotlinx.coroutines.launch
 
@@ -92,26 +93,6 @@ fun LoginScreen(
     label = "logoScale"
   )
 
-  // Soft background glow animation
-  val glowAlpha by infiniteTransition.animateFloat(
-    initialValue = 0.03f,
-    targetValue = 0.08f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(3000, easing = FastOutSlowInEasing),
-      repeatMode = RepeatMode.Reverse
-    ),
-    label = "glowAlpha"
-  )
-  val glowXOffset by infiniteTransition.animateFloat(
-    initialValue = -50f,
-    targetValue = 50f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(4500, easing = EaseInOutSine),
-      repeatMode = RepeatMode.Reverse
-    ),
-    label = "glowXOffset"
-  )
-
   // Shake animatables for validation feedback
   val nameShakeOffset = remember { Animatable(0f) }
   val emailShakeOffset = remember { Animatable(0f) }
@@ -134,10 +115,11 @@ fun LoginScreen(
   Box(
     modifier = Modifier
       .fillMaxSize()
-      .background(theme.background)
       .padding(16.dp),
     contentAlignment = Alignment.Center
   ) {
+    GeometricBackground(theme = theme)
+
     // Back Button in top left corner
     IconButton(
       onClick = { onBackPressedDispatcher?.onBackPressed() },
@@ -152,19 +134,6 @@ fun LoginScreen(
         color = theme.textPrimary
       )
     }
-
-    // Soft ambient background glow
-    Box(
-      modifier = Modifier
-        .size(340.dp)
-        .offset(x = glowXOffset.dp, y = (-60).dp)
-        .clip(RoundedCornerShape(170.dp))
-        .background(
-          Brush.radialGradient(
-            colors = listOf(theme.accent.copy(alpha = glowAlpha), Color.Transparent)
-          )
-        )
-    )
 
     AnimatedVisibility(
       visible = showContent,
