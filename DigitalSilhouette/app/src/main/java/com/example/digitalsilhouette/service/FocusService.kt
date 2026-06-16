@@ -54,31 +54,39 @@ class FocusService : Service() {
     }
 
     private suspend fun performTieredChecks() {
+        // Inform user that tier 1 passed
+        withContext(Dispatchers.Main) {
+            StatusOverlayController.show(applicationContext, "Target Wi-Fi Detected: Checking environment...")
+        }
+
         // Tier 2: Check Wi-Fi
-        val isNetworkMatch = checkWifiNetwork()
-        if (!isNetworkMatch) {
-            repository.logEvent("Tier 2 Failed: Not on target Wi-Fi network. Going to sleep.")
+        if (!checkWifiNetwork()) {
+            repository.logEvent("Tier 2 Failed: Not on target Wi-Fi network.")
             stopSelf()
             return
         }
 
-        repository.logEvent("Tier 2: Wi-Fi matches. Checking orientation...")
-
-        // Tier 2: Check Orientation (Read once)
+        // Tier 2: Check Accelerometer
         val isFaceDown = checkOrientationOnce()
         if (!isFaceDown) {
-            repository.logEvent("Tier 2 Failed: Device is not face down. Going to sleep.")
+            repository.logEvent("Tier 2 Failed: Phone is not face down.")
             stopSelf()
             return
         }
-
-        repository.logEvent("Tier 2 passed. Device is face down. Triggering Tier 3 (Audio Check)...")
 
         // Tier 3: Brief Audio Check
         val decibelCheckPassed = performAudioCheck()
         if (decibelCheckPassed) {
+            withContext(Dispatchers.Main) {
+                StatusOverlayController.show(applicationContext, "Quiet environment confirmed. Audio scan passed.")
+            }
+            
             repository.logEvent("Tier 3 Passed: Audio environment is suitable. Muting phone.")
             
+            withContext(Dispatchers.Main) {
+                StatusOverlayController.show(applicationContext, "Entering the Zone. Muting distractions.")
+            }
+
             // Set phone's profile and go back to sleep
             withContext(Dispatchers.Main) {
                 systemMuter.mute()

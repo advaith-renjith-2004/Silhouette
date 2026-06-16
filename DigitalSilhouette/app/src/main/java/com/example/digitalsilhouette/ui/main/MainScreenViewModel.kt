@@ -95,6 +95,17 @@ class MainScreenViewModel(
   var currentDetectedSsid: String = ""
 
   fun handleToggleRequest(context: Context) {
+    if (!android.provider.Settings.canDrawOverlays(context)) {
+      // Prompt user to grant permission
+      val intent = android.content.Intent(
+        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+        android.net.Uri.parse("package:${context.packageName}")
+      )
+      intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+      context.startActivity(intent)
+      return
+    }
+
     if (isServiceRunning.value) {
       // If already running, just turn it off
       toggleService(context)
