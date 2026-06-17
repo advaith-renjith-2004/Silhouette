@@ -1,0 +1,6 @@
+{
+  "version": "1.0.0-Beta",
+  "versionCode": 1,
+  "apkUrl": "https://github.com/advaith-renjith-2004/Kinetix/releases/download/v1.0.0-Beta/Kinetix-v1.0.0-Beta.apk",
+  "releaseNotes": "Initial Beta release of Kinetix app featuring STILL sensor-based focus silence, theme adaptations, validation animations, and cloud database syncing."
+}
